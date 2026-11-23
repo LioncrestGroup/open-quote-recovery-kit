@@ -686,3 +686,113 @@ input:focus, select:focus, textarea:focus {
     min-width: 850px;
   }
 }
+
+
+
+/* QUOTE REGISTER - VISUAL FIXES */
+
+/* Ensure hidden elements stay hidden */
+[hidden] {
+  display: none !important;
+}
+
+/* Better action buttons */
+.quote-actions {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.quote-actions .small-button {
+  border-radius: 6px;
+  padding: 7px 11px;
+  font-size: 11px;
+  font-weight: 650;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.quote-actions .small-button:not(.delete-button) {
+  background: #142238;
+  color: #ffffff;
+  border: 1px solid #142238;
+}
+
+.quote-actions .small-button:not(.delete-button):hover {
+  background: #c49a52;
+  border-color: #c49a52;
+  color: #142238;
+}
+
+.quote-actions .delete-button {
+  background: #fff5f5;
+  color: #c03939;
+  border: 1px solid #f0cccc;
+}
+
+.quote-actions .delete-button:hover {
+  background: #c03939;
+  color: white;
+  border-color: #c03939;
+}
+
+/* Improve quotation table spacing */
+.table-wrap {
+  overflow-x: auto;
+  width: 100%;
+}
+
+.quote-table {
+  min-width: 1050px;
+  table-layout: auto;
+}
+
+.quote-table th {
+  white-space: nowrap;
+  padding: 14px 15px;
+}
+
+.quote-table td {
+  white-space: nowrap;
+  padding: 15px;
+  vertical-align: middle;
+}
+
+.quote-table td:nth-child(2) {
+  min-width: 150px;
+  white-space: normal;
+}
+
+.quote-table td:nth-child(2) strong {
+  display: block;
+}
+
+.quote-table td:nth-child(2) small {
+  margin-top: 3px;
+}
+
+.quote-toolbar {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.quote-toolbar input {
+  flex: 1;
+  min-width: 0;
+}
+
+.quote-toolbar select {
+  width: 190px;
+  flex-shrink: 0;
+}
+
+@media (max-width: 600px) {
+  .quote-toolbar {
+    flex-direction: column;
+  }
+
+  .quote-toolbar select {
+    width: 100%;
+  }
+}
