@@ -546,6 +546,33 @@ const ORK = {
     setText("outstanding-quotes", outstanding.length);
     setText("due-followups", dueFollowUps.length);
 
+    // Calculate outstanding quotation value by currency.
+const outstandingTotals = {};
+
+outstanding.forEach(quote => {
+  const currency = quote.currency || "USD";
+  const amount = Number(quote.amount) || 0;
+
+  outstandingTotals[currency] =
+    (outstandingTotals[currency] || 0) + amount;
+});
+
+const outstandingValue = Object.entries(outstandingTotals)
+  .map(([currency, amount]) => {
+    try {
+      return new Intl.NumberFormat("en-US", {
+        style: "currency",
+        currency: currency,
+        minimumFractionDigits: 2
+      }).format(amount);
+    } catch (error) {
+      return `${currency} ${amount.toFixed(2)}`;
+    }
+  })
+  .join(" · ");
+
+setText("outstanding-value", outstandingValue || "$0.00");
+
     // Keep different currencies separate.
     const currencyTotals = {};
 
