@@ -456,54 +456,54 @@ const ORK = {
     });
   },
 
-  showView(view) {
-    const titles = {
-      dashboard: "Dashboard",
-      quotes: "Quote Register",
-      planner: "Follow-up Planner",
-      activities: "Activity Log",
-      messages: "Message Generator",
-      analytics: "Recovery Analytics",
-      settings: "Settings"
-    };
+  
+showView(view) {
+  const titles = {
+    dashboard: "Dashboard",
+    quotes: "Quote Register",
+    planner: "Follow-up Planner",
+    activities: "Activity Log",
+    messages: "Message Generator",
+    analytics: "Recovery Analytics",
+    settings: "Settings"
+  };
 
-    if (!titles[view]) return;
+  if (!titles[view]) return;
 
-    this.currentView = view;
+  this.currentView = view;
 
-    const pageTitle = document.getElementById("page-title");
-    const main = document.getElementById("main-content");
+  const pageTitle = document.getElementById("page-title");
+  const main = document.getElementById("main-content");
 
-    if (!pageTitle || !main) return;
+  if (!pageTitle || !main) return;
 
-    pageTitle.textContent = titles[view];
+  pageTitle.textContent = titles[view];
 
-    document.querySelectorAll(".nav-item[data-view]").forEach(item => {
-      item.classList.toggle("active", item.dataset.view === view);
-    });
+  document.querySelectorAll(".nav-item[data-view]").forEach(item => {
+    item.classList.toggle("active", item.dataset.view === view);
+  });
 
-    if (view === "dashboard") {
-  main.innerHTML = this.dashboardHTML;
-  this.renderDashboard();
-}
-    } else if (view === "quotes") {
-      this.renderQuotes();
-    } else if (view === "planner") {
-      this.renderPlanner();
-    } else if (view === "activities") {
-      this.renderActivities();
-    } else if (view === "messages") {
-      this.renderMessages();
-    } else if (view === "analytics") {
-      this.renderAnalytics();
-    } else if (view === "settings") {
-      this.renderSettings();
-    } else {
-      main.innerHTML = this.getPlaceholder(view, titles[view]);
-    }
+  if (view === "dashboard") {
+    main.innerHTML = this.dashboardHTML;
+    this.renderDashboard();
+  } else if (view === "quotes") {
+    this.renderQuotes();
+  } else if (view === "planner") {
+    this.renderPlanner();
+  } else if (view === "activities") {
+    this.renderActivities();
+  } else if (view === "messages") {
+    this.renderMessages();
+  } else if (view === "analytics") {
+    this.renderAnalytics();
+  } else if (view === "settings") {
+    this.renderSettings();
+  } else {
+    main.innerHTML = this.getPlaceholder(view, titles[view]);
+  }
 
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  },
+  window.scrollTo({ top: 0, behavior: "smooth" });
+},
 
   
   renderDashboard() {
