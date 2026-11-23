@@ -4,23 +4,204 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Open Quote Recovery Kit - Manage quotations, follow-ups and revenue recovery.">
+  <meta name="description" content="Open Quote Recovery Kit - Quotation tracking and revenue recovery management.">
   <title>Open Quote Recovery Kit</title>
   <link rel="stylesheet" href="css/styles.css">
 </head>
-<body>
-  <div id="app">
-    <header class="app-header">
-      <h1>Open Quote Recovery Kit</h1>
-      <p>Quotation tracking and revenue recovery management</p>
-    </header>
 
-    <main id="main-content">
-      <section class="welcome">
-        <h2>Welcome to your Quote Recovery Workspace</h2>
-        <p>Your quotation management workspace is being prepared.</p>
-      </section>
-    </main>
+<body>
+  <div class="app-layout">
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">OR</div>
+        <div class="brand-text">
+          <strong>OPEN QUOTE</strong>
+          <span>RECOVERY KIT</span>
+        </div>
+      </div>
+
+      <div class="workspace-label">WORKSPACE</div>
+
+      <nav class="sidebar-nav">
+        <button class="nav-item active" data-view="dashboard">
+          <span>▦</span> Dashboard
+        </button>
+        <button class="nav-item" data-view="quotes">
+          <span>▤</span> Quote Register
+        </button>
+        <button class="nav-item" data-view="planner">
+          <span>◷</span> Follow-up Planner
+        </button>
+        <button class="nav-item" data-view="activities">
+          <span>☷</span> Activity Log
+        </button>
+        <button class="nav-item" data-view="messages">
+          <span>✉</span> Message Generator
+        </button>
+        <button class="nav-item" data-view="analytics">
+          <span>▥</span> Recovery Analytics
+        </button>
+      </nav>
+
+      <div class="sidebar-bottom">
+        <div class="workspace-label">PREFERENCES</div>
+        <button class="nav-item" data-view="settings">
+          <span>⚙</span> Settings
+        </button>
+
+        <div class="sidebar-version">
+          <span class="version-dot"></span>
+          Version 1.0.0
+        </div>
+      </div>
+    </aside>
+
+    <!-- MAIN WORKSPACE -->
+    <div class="main-panel">
+
+      <header class="topbar">
+        <div class="breadcrumb">
+          <span>Workspace</span>
+          <span class="breadcrumb-divider">/</span>
+          <strong id="page-title">Dashboard</strong>
+        </div>
+
+        <div class="topbar-actions">
+          <span class="storage-indicator">
+            <span class="status-dot"></span>
+            Local storage
+          </span>
+          <div class="user-avatar">D</div>
+        </div>
+      </header>
+
+      <main class="content-area" id="main-content">
+
+        <!-- DASHBOARD -->
+        <section class="dashboard-view" id="dashboard-view">
+
+          <div class="page-heading">
+            <div>
+              <p class="eyebrow">OVERVIEW</p>
+              <h1>Dashboard</h1>
+              <p class="page-description">
+                Monitor your quotations, follow-ups and recovered business.
+              </p>
+            </div>
+
+            <button class="primary-button" id="add-quote-button">
+              + Add New Quote
+            </button>
+          </div>
+
+          <!-- KPI CARDS -->
+          <div class="metrics-grid">
+
+            <article class="metric-card">
+              <div class="metric-top">
+                <span>Total Quotations</span>
+                <span class="metric-icon">▤</span>
+              </div>
+              <strong id="total-quotes">0</strong>
+              <p>All recorded quotations</p>
+            </article>
+
+            <article class="metric-card">
+              <div class="metric-top">
+                <span>Outstanding Quotes</span>
+                <span class="metric-icon">◷</span>
+              </div>
+              <strong id="outstanding-quotes">0</strong>
+              <p>Awaiting customer decisions</p>
+            </article>
+
+            <article class="metric-card">
+              <div class="metric-top">
+                <span>Follow-ups Due</span>
+                <span class="metric-icon">◎</span>
+              </div>
+              <strong id="due-followups">0</strong>
+              <p>Require your attention</p>
+            </article>
+
+            <article class="metric-card">
+              <div class="metric-top">
+                <span>Accepted Quote Value</span>
+                <span class="metric-icon">◆</span>
+              </div>
+              <strong id="recovered-value">$0.00</strong>
+              <p>Accepted quotation value</p>
+            </article>
+
+          </div>
+
+          <!-- DASHBOARD CONTENT -->
+          <div class="dashboard-grid">
+
+            <section class="panel">
+              <div class="panel-heading">
+                <div>
+                  <h2>Follow-up Priorities</h2>
+                  <p>Quotes requiring attention</p>
+                </div>
+                <button class="text-button" data-view="planner">
+                  View planner →
+                </button>
+              </div>
+
+              <div class="empty-state">
+                <div class="empty-icon">◷</div>
+                <strong>No follow-ups to display yet</strong>
+                <p>Add quotations and schedule follow-ups to see your priorities here.</p>
+              </div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-heading">
+                <div>
+                  <h2>Quotation Status</h2>
+                  <p>Overview of your pipeline</p>
+                </div>
+              </div>
+
+              <div class="empty-state">
+                <div class="empty-icon">▥</div>
+                <strong>No quotation data yet</strong>
+                <p>Your quotation status overview will appear here.</p>
+              </div>
+            </section>
+
+          </div>
+
+          <!-- RECENT ACTIVITY -->
+          <section class="panel recent-panel">
+            <div class="panel-heading">
+              <div>
+                <h2>Recent Activity</h2>
+                <p>Your latest customer interactions</p>
+              </div>
+              <button class="text-button" data-view="activities">
+                View activity log →
+              </button>
+            </div>
+
+            <div class="empty-state compact">
+              <strong>No activity recorded yet</strong>
+              <p>Customer interactions will appear here once recorded.</p>
+            </div>
+          </section>
+
+          <footer class="app-footer">
+            <span>Open Quote Recovery Kit</span>
+            <span>Version 1.0.0</span>
+          </footer>
+
+        </section>
+
+      </main>
+    </div>
   </div>
 
   <script src="js/app.js"></script>
