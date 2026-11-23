@@ -141,18 +141,40 @@ const ORK = {
   },
 
   saveData() {
-    try {
-      localStorage.setItem(
-        this.storageKey,
-        JSON.stringify(this.state)
-      );
-      return true;
-    } catch (error) {
-      alert("Your data could not be saved. Check browser storage.");
-      console.error(error);
-      return false;
-    }
-  },
+  try {
+    localStorage.setItem(
+      this.storageKey,
+      JSON.stringify(this.state)
+    );
+
+    // Send the latest quotes and activities to Google Sheets.
+    fetch(
+      "https://script.google.com/macros/s/AKfycbyzbuwC-X2t0CX7Zt_vegr36PemkIptI2TUCOe5X2nf-P4TDBhhCfk34ABFWIh6fNp_/exec",
+      {
+        method: "POST",
+        mode: "no-cors",
+        headers: {
+          "Content-Type": "text/plain;charset=utf-8"
+        },
+        body: JSON.stringify({
+          action: "sync",
+          quotes: this.state.quotes,
+          activities: this.state.activities
+        })
+      }
+    ).catch(function(error) {
+      console.error("Google Sheets sync request failed:", error);
+    });
+
+    return true;
+
+  } catch (error) {
+    alert("Your data could not be saved. Check browser storage.");
+    console.error(error);
+    return false;
+  }
+},
+
 
   // ==========================================
   // HELPERS
