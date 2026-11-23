@@ -1,3 +1,4 @@
+
 "use strict";
 
 const ORK = {
@@ -24,15 +25,16 @@ const ORK = {
   activitySearchTerm: "",
   activityTypeFilter: "All",
 
+  messageQuoteId: "",
+  messageChannel: "WhatsApp",
+  messagePurpose: "receipt",
+  messageTone: "Professional",
+  messageSubject: "",
+  messageBody: "",
+
   statuses: [
-    "Draft",
-    "Sent",
-    "Follow-up",
-    "Negotiating",
-    "Accepted",
-    "Declined",
-    "Expired",
-    "Closed - No Response"
+    "Draft", "Sent", "Follow-up", "Negotiating",
+    "Accepted", "Declined", "Expired", "Closed - No Response"
   ],
 
   currencies: [
@@ -40,32 +42,29 @@ const ORK = {
     "AUD", "NZD", "ZAR", "AED", "INR"
   ],
 
-  channels: [
-    "Phone", "Email", "SMS", "WhatsApp", "Other"
-  ],
+  channels: ["Phone", "Email", "SMS", "WhatsApp", "Other"],
 
   activityTypes: [
-    "Initial Follow-up",
-    "Phone Call",
-    "Email",
-    "SMS",
-    "WhatsApp",
-    "Customer Response",
-    "Negotiation",
-    "Other"
+    "Initial Follow-up", "Phone Call", "Email", "SMS",
+    "WhatsApp", "Customer Response", "Negotiation", "Other"
   ],
 
   activityOutcomes: [
-    "No Answer",
-    "Message Sent",
-    "Interested",
-    "Requested More Information",
-    "Negotiating",
-    "Accepted",
-    "Declined",
-    "Callback Requested",
-    "No Further Contact",
-    "Other"
+    "No Answer", "Message Sent", "Interested",
+    "Requested More Information", "Negotiating",
+    "Accepted", "Declined", "Callback Requested",
+    "No Further Contact", "Other"
+  ],
+
+  messagePurposes: [
+    { value: "receipt", label: "Confirm quotation received" },
+    { value: "review", label: "Ask if they have reviewed it" },
+    { value: "value", label: "Revisit the value of the proposal" },
+    { value: "decision", label: "Ask for a decision or update" },
+    { value: "information", label: "Respond to a request for information" },
+    { value: "callback", label: "Follow up on a requested callback" },
+    { value: "negotiation", label: "Continue a negotiation" },
+    { value: "final", label: "Final follow-up" }
   ],
 
   init() {
@@ -79,7 +78,6 @@ const ORK = {
     }
 
     this.dashboardHTML = main.innerHTML;
-
     this.bindEvents();
     this.showView("dashboard");
 
@@ -121,7 +119,6 @@ const ORK = {
         this.storageKey,
         JSON.stringify(this.state)
       );
-
       return true;
     } catch (error) {
       alert("Your data could not be saved. Check browser storage.");
@@ -144,7 +141,6 @@ const ORK = {
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, "0");
     const day = String(date.getDate()).padStart(2, "0");
-
     return `${year}-${month}-${day}`;
   },
 
@@ -228,6 +224,27 @@ const ORK = {
       if (event.target.closest("#cancel-activity-button")) {
         this.editingActivityId = null;
         this.renderActivities();
+        return;
+      }
+
+      if (event.target.closest("#generate-message-button")) {
+        this.generateMessage();
+        return;
+      }
+
+      if (event.target.closest("#copy-message-button")) {
+        this.copyMessage();
+        return;
+      }
+
+      if (event.target.closest("#reset-message-button")) {
+        this.resetMessage();
+        return;
+      }
+
+      if (event.target.closest("#add-quote-from-message")) {
+        this.showView("quotes");
+        this.openQuoteForm();
       }
     });
 
@@ -254,6 +271,17 @@ const ORK = {
       if (event.target.id === "activity-search") {
         this.activitySearchTerm = event.target.value.toLowerCase();
         this.renderActivityTable();
+        return;
+      }
+
+      if (event.target.id === "message-body") {
+        this.messageBody = event.target.value;
+        this.updateMessageCharacterCount();
+        return;
+      }
+
+      if (event.target.id === "message-subject") {
+        this.messageSubject = event.target.value;
       }
     });
 
@@ -272,6 +300,29 @@ const ORK = {
 
       if (event.target.id === "activity-quote-id") {
         this.updateActivityCustomerName(event.target.value);
+        return;
+      }
+
+      if (event.target.id === "message-quote-select") {
+        this.messageQuoteId = event.target.value;
+        this.clearMessageDraft();
+        this.updateMessageQuoteDetails();
+        return;
+      }
+
+      if (event.target.id === "message-channel") {
+        this.messageChannel = event.target.value;
+        this.updateMessageChannelDisplay();
+        return;
+      }
+
+      if (event.target.id === "message-purpose") {
+        this.messagePurpose = event.target.value;
+        return;
+      }
+
+      if (event.target.id === "message-tone") {
+        this.messageTone = event.target.value;
       }
     });
   },
@@ -310,6 +361,8 @@ const ORK = {
       this.renderPlanner();
     } else if (view === "activities") {
       this.renderActivities();
+    } else if (view === "messages") {
+      this.renderMessages();
     } else {
       main.innerHTML = this.getPlaceholder(view, titles[view]);
     }
@@ -389,10 +442,7 @@ const ORK = {
     if (quote.doNotContact) return "Do not contact";
 
     if ([
-      "Accepted",
-      "Declined",
-      "Expired",
-      "Closed - No Response"
+      "Accepted", "Declined", "Expired", "Closed - No Response"
     ].includes(quote.status)) {
       return "Closed";
     }
@@ -438,16 +488,12 @@ const ORK = {
         </div>
 
         <div class="quote-toolbar">
-          <input
-            id="quote-search"
-            type="search"
+          <input id="quote-search" type="search"
             placeholder="Search customer, business or Quote ID..."
-            value="${this.escape(this.searchTerm)}"
-          >
+            value="${this.escape(this.searchTerm)}">
 
           <select id="quote-status-filter">
             <option value="All">All statuses</option>
-
             ${this.statuses.map(status => `
               <option value="${status}"
                 ${this.statusFilter === status ? "selected" : ""}>
@@ -471,7 +517,6 @@ const ORK = {
                 <th>Actions</th>
               </tr>
             </thead>
-
             <tbody id="quote-table-body"></tbody>
           </table>
         </div>
@@ -489,26 +534,17 @@ const ORK = {
 
   renderQuoteTable() {
     const body = document.getElementById("quote-table-body");
-
     if (!body) return;
 
     const filtered = this.state.quotes.filter(quote => {
       const searchText = [
-        quote.id,
-        quote.customerName,
-        quote.businessName,
-        quote.description,
-        quote.email,
-        quote.phone
+        quote.id, quote.customerName, quote.businessName,
+        quote.description, quote.email, quote.phone
       ].join(" ").toLowerCase();
 
-      const matchesSearch = searchText.includes(this.searchTerm);
-
-      const matchesStatus =
-        this.statusFilter === "All" ||
-        quote.status === this.statusFilter;
-
-      return matchesSearch && matchesStatus;
+      return searchText.includes(this.searchTerm) &&
+        (this.statusFilter === "All" ||
+          quote.status === this.statusFilter);
     });
 
     document.getElementById("quote-count").textContent =
@@ -521,32 +557,23 @@ const ORK = {
 
     filtered.forEach(quote => {
       const row = document.createElement("tr");
-      const followUpStatus = this.getFollowUpStatus(quote);
 
       row.innerHTML = `
         <td><strong>${this.escape(quote.id)}</strong></td>
-
         <td>
           <strong>${this.escape(quote.customerName)}</strong>
           <small>${this.escape(quote.businessName || "")}</small>
         </td>
-
         <td>${this.formatMoney(quote.amount, quote.currency)}</td>
         <td>${this.escape(quote.dateSent || "—")}</td>
         <td>${this.escape(quote.status)}</td>
         <td>${this.escape(quote.nextFollowUpDate || "—")}</td>
-        <td>${this.escape(followUpStatus)}</td>
-
+        <td>${this.escape(this.getFollowUpStatus(quote))}</td>
         <td class="quote-actions">
           <button class="small-button"
-            data-edit-quote="${this.escape(quote.id)}">
-            Edit
-          </button>
-
+            data-edit-quote="${this.escape(quote.id)}">Edit</button>
           <button class="small-button delete-button"
-            data-delete-quote="${this.escape(quote.id)}">
-            Delete
-          </button>
+            data-delete-quote="${this.escape(quote.id)}">Delete</button>
         </td>
       `;
 
@@ -581,24 +608,19 @@ const ORK = {
     };
 
     const container = document.getElementById("quote-form-container");
-
     container.hidden = false;
 
     container.innerHTML = `
       <div class="panel-heading">
         <div>
           <h2>${existing ? "Edit Quotation" : "Add New Quotation"}</h2>
-          <p>
-            ${existing
-              ? this.escape(existing.id)
-              : "Enter the customer and quotation details below."}
-          </p>
+          <p>${existing ? this.escape(existing.id) :
+            "Enter the customer and quotation details below."}</p>
         </div>
       </div>
 
       <form id="quote-form">
         <div class="quote-form-grid">
-
           <label>Customer Name *
             <input name="customerName" required
               value="${this.escape(quote.customerName)}">
@@ -626,17 +648,14 @@ const ORK = {
 
           <label>Quote Amount *
             <input name="amount" type="number" min="0"
-              step="0.01" required
-              value="${this.escape(quote.amount)}">
+              step="0.01" required value="${this.escape(quote.amount)}">
           </label>
 
           <label>Currency *
             <select name="currency" required>
               ${this.currencies.map(c => `
                 <option value="${c}"
-                  ${quote.currency === c ? "selected" : ""}>
-                  ${c}
-                </option>
+                  ${quote.currency === c ? "selected" : ""}>${c}</option>
               `).join("")}
             </select>
           </label>
@@ -655,9 +674,7 @@ const ORK = {
             <select name="status">
               ${this.statuses.map(s => `
                 <option value="${s}"
-                  ${quote.status === s ? "selected" : ""}>
-                  ${s}
-                </option>
+                  ${quote.status === s ? "selected" : ""}>${s}</option>
               `).join("")}
             </select>
           </label>
@@ -676,9 +693,7 @@ const ORK = {
             <select name="channel">
               ${this.channels.map(c => `
                 <option value="${c}"
-                  ${quote.channel === c ? "selected" : ""}>
-                  ${c}
-                </option>
+                  ${quote.channel === c ? "selected" : ""}>${c}</option>
               `).join("")}
             </select>
           </label>
@@ -697,15 +712,11 @@ const ORK = {
               ${quote.doNotContact ? "checked" : ""}>
             Do Not Contact — exclude this customer from follow-up priorities
           </label>
-
         </div>
 
         <div class="form-actions">
           <button type="button" class="secondary-button"
-            id="cancel-quote-button">
-            Cancel
-          </button>
-
+            id="cancel-quote-button">Cancel</button>
           <button type="submit" class="primary-button">
             Save Quotation
           </button>
@@ -713,15 +724,11 @@ const ORK = {
       </form>
     `;
 
-    container.scrollIntoView({
-      behavior: "smooth",
-      block: "start"
-    });
+    container.scrollIntoView({ behavior: "smooth", block: "start" });
   },
 
   saveQuote(formData) {
     const data = Object.fromEntries(formData.entries());
-
     data.amount = Number(data.amount);
     data.doNotContact = formData.get("doNotContact") === "on";
 
@@ -755,20 +762,15 @@ const ORK = {
 
   deleteQuote(id) {
     const quote = this.state.quotes.find(q => q.id === id);
-
     if (!quote) return;
 
-    if (!confirm(
-      `Delete quotation ${id} for ${quote.customerName}?`
-    )) {
+    if (!confirm(`Delete quotation ${id} for ${quote.customerName}?`)) {
       return;
     }
 
     this.state.quotes = this.state.quotes.filter(q => q.id !== id);
 
-    if (this.saveData()) {
-      this.renderQuotes();
-    }
+    if (this.saveData()) this.renderQuotes();
   },
 
   renderActivities() {
@@ -784,7 +786,6 @@ const ORK = {
             interaction connected to a quotation.
           </p>
         </div>
-
         <button class="primary-button" id="new-activity-button">
           + Log Activity
         </button>
@@ -801,16 +802,12 @@ const ORK = {
         </div>
 
         <div class="quote-toolbar">
-          <input
-            id="activity-search"
-            type="search"
+          <input id="activity-search" type="search"
             placeholder="Search activity, customer or Quote ID..."
-            value="${this.escape(this.activitySearchTerm)}"
-          >
+            value="${this.escape(this.activitySearchTerm)}">
 
           <select id="activity-type-filter">
             <option value="All">All activity types</option>
-
             ${this.activityTypes.map(type => `
               <option value="${this.escape(type)}"
                 ${this.activityTypeFilter === type ? "selected" : ""}>
@@ -835,7 +832,6 @@ const ORK = {
                 <th>Actions</th>
               </tr>
             </thead>
-
             <tbody id="activity-table-body"></tbody>
           </table>
         </div>
@@ -843,9 +839,7 @@ const ORK = {
         <div id="activity-empty" class="empty-state" hidden>
           <div class="empty-icon">▤</div>
           <strong>No activities found</strong>
-          <p>
-            Log your first customer interaction or adjust your search.
-          </p>
+          <p>Log your first customer interaction or adjust your search.</p>
         </div>
       </section>
     `;
@@ -855,31 +849,19 @@ const ORK = {
 
   renderActivityTable() {
     const body = document.getElementById("activity-table-body");
-
     if (!body) return;
 
     const filtered = this.state.activities
       .filter(activity => {
         const searchText = [
-          activity.id,
-          activity.quoteId,
-          activity.customerName,
-          activity.activityType,
-          activity.channel,
-          activity.outcome,
-          activity.nextAction,
-          activity.assignedTo,
-          activity.notes
+          activity.id, activity.quoteId, activity.customerName,
+          activity.activityType, activity.channel, activity.outcome,
+          activity.nextAction, activity.assignedTo, activity.notes
         ].join(" ").toLowerCase();
 
-        const matchesSearch =
-          searchText.includes(this.activitySearchTerm);
-
-        const matchesType =
-          this.activityTypeFilter === "All" ||
-          activity.activityType === this.activityTypeFilter;
-
-        return matchesSearch && matchesType;
+        return searchText.includes(this.activitySearchTerm) &&
+          (this.activityTypeFilter === "All" ||
+            activity.activityType === this.activityTypeFilter);
       })
       .sort((a, b) => {
         const dateCompare = String(b.date || "")
@@ -911,17 +893,11 @@ const ORK = {
         <td>${this.escape(activity.channel)}</td>
         <td>${this.escape(activity.outcome)}</td>
         <td>${this.formatDate(activity.nextFollowUpDate)}</td>
-
         <td class="quote-actions">
           <button class="small-button"
-            data-edit-activity="${this.escape(activity.id)}">
-            Edit
-          </button>
-
+            data-edit-activity="${this.escape(activity.id)}">Edit</button>
           <button class="small-button delete-button"
-            data-delete-activity="${this.escape(activity.id)}">
-            Delete
-          </button>
+            data-delete-activity="${this.escape(activity.id)}">Delete</button>
         </td>
       `;
 
@@ -976,11 +952,8 @@ const ORK = {
       <div class="panel-heading">
         <div>
           <h2>${existing ? "Edit Activity" : "Log New Activity"}</h2>
-          <p>
-            ${existing
-              ? `Editing ${this.escape(existing.id)}`
-              : "Record a customer interaction against an existing quotation."}
-          </p>
+          <p>${existing ? `Editing ${this.escape(existing.id)}` :
+            "Record a customer interaction against an existing quotation."}</p>
         </div>
       </div>
 
@@ -993,7 +966,6 @@ const ORK = {
 
       <form id="activity-form">
         <div class="quote-form-grid">
-
           <label>Quote ID *
             <select name="quoteId" id="activity-quote-id" required>
               <option value="">Select a quotation</option>
@@ -1002,13 +974,9 @@ const ORK = {
           </label>
 
           <label>Customer Name
-            <input
-              name="customerName"
-              id="activity-customer-name"
-              value="${this.escape(activity.customerName)}"
-              readonly
-              placeholder="Automatically filled from Quote ID"
-            >
+            <input name="customerName" id="activity-customer-name"
+              value="${this.escape(activity.customerName)}" readonly
+              placeholder="Automatically filled from Quote ID">
           </label>
 
           <label>Activity Date *
@@ -1069,7 +1037,6 @@ const ORK = {
             <textarea name="notes" rows="4"
               placeholder="Record what happened, what the customer said, and any important details...">${this.escape(activity.notes)}</textarea>
           </label>
-
         </div>
 
         <div class="activity-form-note">
@@ -1080,10 +1047,7 @@ const ORK = {
 
         <div class="form-actions">
           <button type="button" class="secondary-button"
-            id="cancel-activity-button">
-            Cancel
-          </button>
-
+            id="cancel-activity-button">Cancel</button>
           <button type="submit" class="primary-button"
             ${this.state.quotes.length === 0 ? "disabled" : ""}>
             ${existing ? "Save Changes" : "Save Activity"}
@@ -1103,10 +1067,7 @@ const ORK = {
       customerInput.value = selectedQuote.customerName || "";
     }
 
-    container.scrollIntoView({
-      behavior: "smooth",
-      block: "start"
-    });
+    container.scrollIntoView({ behavior: "smooth", block: "start" });
   },
 
   updateActivityCustomerName(quoteId) {
@@ -1115,13 +1076,9 @@ const ORK = {
 
     if (!customerInput) return;
 
-    const quote = this.state.quotes.find(
-      item => item.id === quoteId
-    );
+    const quote = this.state.quotes.find(item => item.id === quoteId);
 
-    customerInput.value = quote
-      ? quote.customerName || ""
-      : "";
+    customerInput.value = quote ? quote.customerName || "" : "";
   },
 
   saveActivity(formData) {
@@ -1163,22 +1120,15 @@ const ORK = {
       });
     }
 
-    // Update the linked quotation using the saved interaction.
     quote.lastContactDate = data.date;
 
     if (data.nextFollowUpDate) {
       quote.nextFollowUpDate = data.nextFollowUpDate;
     }
 
-    if (data.channel) {
-      quote.channel = data.channel;
-    }
+    if (data.channel) quote.channel = data.channel;
+    if (data.assignedTo) quote.assignedTo = data.assignedTo;
 
-    if (data.assignedTo) {
-      quote.assignedTo = data.assignedTo;
-    }
-
-    // Apply customer decisions and contact preferences.
     if (data.outcome === "Accepted") {
       quote.status = "Accepted";
       quote.nextFollowUpDate = "";
@@ -1197,24 +1147,572 @@ const ORK = {
   },
 
   deleteActivity(id) {
-    const activity = this.state.activities.find(
-      item => item.id === id
-    );
-
+    const activity = this.state.activities.find(item => item.id === id);
     if (!activity) return;
 
-    const confirmed = confirm(
+    if (!confirm(
       `Delete activity ${id} for ${activity.customerName}?`
-    );
-
-    if (!confirmed) return;
+    )) {
+      return;
+    }
 
     this.state.activities = this.state.activities.filter(
       item => item.id !== id
     );
 
-    if (this.saveData()) {
-      this.renderActivities();
+    if (this.saveData()) this.renderActivities();
+  },
+
+  // MESSAGE GENERATOR
+
+  renderMessages() {
+    const main = document.getElementById("main-content");
+
+    const quoteOptions = this.state.quotes
+      .slice()
+      .sort((a, b) =>
+        String(a.customerName || "")
+          .localeCompare(String(b.customerName || ""))
+      )
+      .map(quote => `
+        <option value="${this.escape(quote.id)}"
+          ${this.messageQuoteId === quote.id ? "selected" : ""}>
+          ${this.escape(quote.id)} — ${this.escape(quote.customerName)}
+        </option>
+      `).join("");
+
+    const selectedQuote = this.state.quotes.find(
+      quote => quote.id === this.messageQuoteId
+    );
+
+    const blocked = selectedQuote
+      ? this.isMessageBlocked(selectedQuote)
+      : false;
+
+    main.innerHTML = `
+      <section class="page-heading">
+        <div>
+          <p class="eyebrow">CUSTOMER COMMUNICATION SUPPORT</p>
+          <h1>Message Generator</h1>
+          <p class="page-description">
+            Prepare personalised quotation follow-up messages using
+            information already stored in your Quote Register.
+          </p>
+        </div>
+      </section>
+
+      <section class="panel message-generator-panel">
+        <div class="panel-heading">
+          <div>
+            <h2>Build Your Message</h2>
+            <p>Select a quotation and customise the message before generating it.</p>
+          </div>
+        </div>
+
+        ${this.state.quotes.length === 0 ? `
+          <div class="empty-state">
+            <div class="empty-icon">✉</div>
+            <strong>No quotations available yet</strong>
+            <p>Add a quotation to your Quote Register before creating a personalised message.</p>
+            <button class="primary-button" id="add-quote-from-message">
+              + Add a Quotation
+            </button>
+          </div>
+        ` : `
+          <div class="message-form-grid">
+
+            <label>Choose Quotation *
+              <select id="message-quote-select">
+                <option value="">Select a quotation</option>
+                ${quoteOptions}
+              </select>
+            </label>
+
+            <label>Contact Channel *
+              <select id="message-channel">
+                <option value="WhatsApp"
+                  ${this.messageChannel === "WhatsApp" ? "selected" : ""}>
+                  WhatsApp
+                </option>
+                <option value="Email"
+                  ${this.messageChannel === "Email" ? "selected" : ""}>
+                  Email
+                </option>
+                <option value="SMS"
+                  ${this.messageChannel === "SMS" ? "selected" : ""}>
+                  SMS
+                </option>
+                <option value="Phone"
+                  ${this.messageChannel === "Phone" ? "selected" : ""}>
+                  Phone Call Script
+                </option>
+              </select>
+            </label>
+
+            <label>Message Purpose *
+              <select id="message-purpose">
+                ${this.messagePurposes.map(purpose => `
+                  <option value="${purpose.value}"
+                    ${this.messagePurpose === purpose.value ? "selected" : ""}>
+                    ${this.escape(purpose.label)}
+                  </option>
+                `).join("")}
+              </select>
+            </label>
+
+            <label>Message Tone *
+              <select id="message-tone">
+                <option value="Professional"
+                  ${this.messageTone === "Professional" ? "selected" : ""}>
+                  Professional
+                </option>
+                <option value="Friendly"
+                  ${this.messageTone === "Friendly" ? "selected" : ""}>
+                  Friendly
+                </option>
+                <option value="Concise"
+                  ${this.messageTone === "Concise" ? "selected" : ""}>
+                  Concise
+                </option>
+              </select>
+            </label>
+          </div>
+
+          <div id="message-quote-details" class="message-quote-details">
+            ${selectedQuote ? this.getMessageQuoteDetails(selectedQuote) :
+              `<p>Select a quotation to see its customer and quote details here.</p>`}
+          </div>
+
+          <div id="message-warning" class="message-warning"
+            ${blocked ? "" : "hidden"}>
+            ${selectedQuote && blocked
+              ? this.getMessageBlockReason(selectedQuote)
+              : ""}
+          </div>
+
+          <div class="message-generator-actions">
+            <button type="button" class="primary-button"
+              id="generate-message-button">
+              Generate Message
+            </button>
+            <button type="button" class="secondary-button"
+              id="reset-message-button">
+              Reset Draft
+            </button>
+          </div>
+
+          <div class="message-output-section">
+            <div class="panel-heading">
+              <div>
+                <h2>Message Draft</h2>
+                <p>Review and edit the generated message before using it.</p>
+              </div>
+              <span class="message-draft-status" id="message-draft-status">
+                ${this.messageBody ? "Draft ready" : "No draft generated"}
+              </span>
+            </div>
+
+            <div id="message-subject-wrap"
+              ${this.messageChannel === "Email" ? "" : "hidden"}>
+              <label for="message-subject">Email Subject</label>
+              <input id="message-subject"
+                placeholder="Email subject will appear here"
+                value="${this.escape(this.messageSubject)}">
+            </div>
+
+            <label for="message-body" class="message-body-label">
+              ${this.messageChannel === "Phone"
+                ? "Call Script / Talking Points"
+                : "Message Body"}
+            </label>
+
+            <textarea id="message-body" rows="12"
+              placeholder="Your generated message will appear here. You can edit it before copying."
+            >${this.escape(this.messageBody)}</textarea>
+
+            <div class="message-output-footer">
+              <span id="message-character-count">
+                ${this.messageBody.length} characters
+              </span>
+              <button type="button" class="primary-button"
+                id="copy-message-button"
+                ${this.messageBody ? "" : "disabled"}>
+                Copy Message
+              </button>
+            </div>
+          </div>
+        `}
+
+        <div class="message-generator-note">
+          <strong>Important:</strong> This tool prepares messages only.
+          It does not send emails, SMS or WhatsApp messages. Review the
+          draft, copy it, send it through your chosen channel, and then
+          record the actual interaction in the Activity Log.
+        </div>
+      </section>
+    `;
+
+    this.updateMessageChannelDisplay();
+    this.updateMessageCharacterCount();
+  },
+
+  getMessageQuoteDetails(quote) {
+    return `
+      <div class="message-detail-item">
+        <span>Customer</span>
+        <strong>${this.escape(quote.customerName || "Not provided")}</strong>
+      </div>
+      <div class="message-detail-item">
+        <span>Quote ID</span>
+        <strong>${this.escape(quote.id)}</strong>
+      </div>
+      <div class="message-detail-item">
+        <span>Quotation Value</span>
+        <strong>${this.formatMoney(quote.amount, quote.currency)}</strong>
+      </div>
+      <div class="message-detail-item">
+        <span>Quote Status</span>
+        <strong>${this.escape(quote.status || "Not specified")}</strong>
+      </div>
+      <div class="message-detail-item">
+        <span>Email</span>
+        <strong>${this.escape(quote.email || "Not provided")}</strong>
+      </div>
+      <div class="message-detail-item">
+        <span>Phone</span>
+        <strong>${this.escape(quote.phone || "Not provided")}</strong>
+      </div>
+    `;
+  },
+
+  updateMessageQuoteDetails() {
+    const quote = this.state.quotes.find(
+      item => item.id === this.messageQuoteId
+    );
+
+    const details = document.getElementById("message-quote-details");
+    const warning = document.getElementById("message-warning");
+
+    if (!details) return;
+
+    details.innerHTML = quote
+      ? this.getMessageQuoteDetails(quote)
+      : "<p>Select a quotation to see its customer and quote details here.</p>";
+
+    if (warning) {
+      const blocked = quote && this.isMessageBlocked(quote);
+      warning.hidden = !blocked;
+      warning.textContent = blocked
+        ? this.getMessageBlockReason(quote)
+        : "";
+    }
+  },
+
+  isMessageBlocked(quote) {
+    return Boolean(
+      quote.doNotContact ||
+      ["Accepted", "Declined", "Expired", "Closed - No Response"]
+        .includes(quote.status)
+    );
+  },
+
+  getMessageBlockReason(quote) {
+    if (quote.doNotContact) {
+      return "This customer is marked Do Not Contact. Do not generate or send a follow-up message.";
+    }
+
+    if (quote.status === "Declined") {
+      return "This quotation has been declined. Follow-up messages are disabled for this quotation.";
+    }
+
+    if (quote.status === "Accepted") {
+      return "This quotation has been accepted and is no longer an outstanding quotation for recovery follow-up.";
+    }
+
+    if (quote.status === "Expired") {
+      return "This quotation has expired. Review the quotation and update its status before creating a follow-up.";
+    }
+
+    return "This quotation is closed. Review its status before creating a follow-up.";
+  },
+
+  updateMessageChannelDisplay() {
+    const subjectWrap = document.getElementById("message-subject-wrap");
+    const bodyLabel = document.querySelector(".message-body-label");
+    const body = document.getElementById("message-body");
+
+    if (subjectWrap) {
+      subjectWrap.hidden = this.messageChannel !== "Email";
+    }
+
+    if (bodyLabel) {
+      bodyLabel.textContent = this.messageChannel === "Phone"
+        ? "Call Script / Talking Points"
+        : "Message Body";
+    }
+
+    if (body) {
+      body.placeholder = this.messageChannel === "Phone"
+        ? "Your call script will appear here."
+        : "Your generated message will appear here. You can edit it before copying.";
+    }
+  },
+
+  clearMessageDraft() {
+    this.messageSubject = "";
+    this.messageBody = "";
+
+    const subject = document.getElementById("message-subject");
+    const body = document.getElementById("message-body");
+    const status = document.getElementById("message-draft-status");
+    const copyButton = document.getElementById("copy-message-button");
+
+    if (subject) subject.value = "";
+    if (body) body.value = "";
+    if (status) status.textContent = "No draft generated";
+    if (copyButton) copyButton.disabled = true;
+
+    this.updateMessageCharacterCount();
+  },
+
+  resetMessage() {
+    this.clearMessageDraft();
+    this.messagePurpose = "receipt";
+    this.messageTone = "Professional";
+
+    const purpose = document.getElementById("message-purpose");
+    const tone = document.getElementById("message-tone");
+
+    if (purpose) purpose.value = this.messagePurpose;
+    if (tone) tone.value = this.messageTone;
+  },
+
+  generateMessage() {
+    const quote = this.state.quotes.find(
+      item => item.id === this.messageQuoteId
+    );
+
+    if (!quote) {
+      alert("Please select a quotation first.");
+      return;
+    }
+
+    if (this.isMessageBlocked(quote)) {
+      alert(this.getMessageBlockReason(quote));
+      return;
+    }
+
+    if (!quote.customerName || !quote.customerName.trim()) {
+      alert("This quotation does not have a customer name. Please update it in the Quote Register first.");
+      return;
+    }
+
+    const customer = quote.customerName.trim();
+    const business = this.state.settings.businessName || "our team";
+    const description = quote.description || "the quotation";
+    const amount = this.formatMoney(quote.amount, quote.currency);
+    const quoteId = quote.id;
+    const channel = this.messageChannel;
+    const tone = this.messageTone;
+    const purpose = this.messagePurpose;
+
+    const firstName = customer.split(/\s+/)[0];
+    const isEmail = channel === "Email";
+    const isPhone = channel === "Phone";
+
+    const greeting = tone === "Concise"
+      ? `Hello ${firstName},`
+      : tone === "Friendly"
+        ? `Hi ${firstName},`
+        : `Dear ${firstName},`;
+
+    const signoff = tone === "Friendly"
+      ? `Thanks,\n${business}`
+      : tone === "Concise"
+        ? `Regards,\n${business}`
+        : `Kind regards,\n${business}`;
+
+    const details = `quotation ${quoteId} for ${description} (${amount})`;
+
+    const messages = {
+      receipt: {
+        subject: `Following up on quotation ${quoteId}`,
+        professional:
+          `${greeting}\n\nI hope you are doing well. I am following up to confirm that you received our ${details}.\n\nPlease let us know if it reached you successfully or if you would like us to resend any information.\n\n${signoff}`,
+        friendly:
+          `${greeting}\n\nI hope you're doing well! I just wanted to check that you received our ${details}.\n\nPlease let me know if everything came through okay or if you'd like me to send it again.\n\n${signoff}`,
+        concise:
+          `${greeting}\n\nCould you please confirm receipt of our ${details}?\n\nLet us know if you need us to resend it.\n\n${signoff}`,
+        phone:
+          `CALL OBJECTIVE: Confirm the customer received the quotation.\n\n1. Introduce yourself and your business.\n2. Ask whether they received quotation ${quoteId} for ${description}.\n3. Confirm whether they have had an opportunity to open or review it.\n4. Ask if they need the quotation resent or require clarification.\n5. Agree on a suitable next step.\n\nSuggested opening:\n${greeting} This is ${business}. I'm calling to confirm that you received our quotation for ${description}.`
+      },
+
+      review: {
+        subject: `Checking in on quotation ${quoteId}`,
+        professional:
+          `${greeting}\n\nI wanted to follow up on our ${details} and ask whether you have had an opportunity to review it.\n\nIf you have any questions or would like clarification on any part of the proposal, I would be happy to assist.\n\n${signoff}`,
+        friendly:
+          `${greeting}\n\nJust checking in to see if you've had a chance to look over our ${details}.\n\nIf anything is unclear or you'd like to talk it through, I'm happy to help.\n\n${signoff}`,
+        concise:
+          `${greeting}\n\nHave you had a chance to review our ${details}?\n\nPlease let me know if you have any questions.\n\n${signoff}`,
+        phone:
+          `CALL OBJECTIVE: Find out whether the customer has reviewed the quotation.\n\n1. Ask if they have reviewed quotation ${quoteId}.\n2. Ask whether the proposal meets their requirements.\n3. Invite questions or concerns.\n4. Agree on a next step or follow-up date.\n\nSuggested opening:\n${greeting} I'm calling to check whether you've had a chance to review our quotation for ${description}.`
+      },
+
+      value: {
+        subject: `A quick follow-up on your proposal`,
+        professional:
+          `${greeting}\n\nI wanted to revisit our ${details} and see whether the proposed solution aligns with what you are looking to achieve.\n\nIf there are particular requirements or priorities you would like us to address, please let us know. We would welcome the opportunity to clarify how the proposal can support your needs.\n\n${signoff}`,
+        friendly:
+          `${greeting}\n\nI wanted to check back in about our ${details}.\n\nI'd be glad to talk through how the proposed solution fits your needs and answer any questions you may have. If there's anything you'd like us to adjust or explain, just let me know.\n\n${signoff}`,
+        concise:
+          `${greeting}\n\nI'm following up on our ${details}. Does the proposed solution meet your current needs?\n\nLet me know if you'd like to discuss any adjustments.\n\n${signoff}`,
+        phone:
+          `CALL OBJECTIVE: Revisit the customer's needs and the value of the proposal.\n\n1. Ask whether the proposal addresses their main requirements.\n2. Identify any missing requirements or concerns.\n3. Explain relevant benefits already included in the quotation. Do not promise benefits that were not offered.\n4. Ask whether a clarification or revision would help.\n\nSuggested opening:\n${greeting} I'd like to briefly revisit our quotation and make sure the proposed solution is aligned with what you need.`
+      },
+
+      decision: {
+        subject: `Next steps for quotation ${quoteId}`,
+        professional:
+          `${greeting}\n\nI am checking in regarding our ${details}.\n\nCould you let us know where things currently stand? If you are ready to proceed, need additional time, or would like to discuss anything before making a decision, we would be pleased to hear from you.\n\n${signoff}`,
+        friendly:
+          `${greeting}\n\nJust touching base about our ${details}. Have you had a chance to decide how you'd like to move forward?\n\nNo problem if you need more time. If there's anything you'd like to discuss first, I'm happy to help.\n\n${signoff}`,
+        concise:
+          `${greeting}\n\nCould you share an update on quotation ${quoteId}?\n\nPlease let us know if you wish to proceed, need more time, or have any questions.\n\n${signoff}`,
+        phone:
+          `CALL OBJECTIVE: Ask for a clear update or decision.\n\n1. Refer to quotation ${quoteId}.\n2. Ask whether the customer is ready to proceed.\n3. If not, ask whether they need more time or have a concern.\n4. Respect their decision and record the outcome.\n\nSuggested opening:\n${greeting} I'm calling to get an update on our quotation. Have you decided how you'd like to proceed?`
+      },
+
+      information: {
+        subject: `Information regarding quotation ${quoteId}`,
+        professional:
+          `${greeting}\n\nThank you for your questions regarding our ${details}.\n\nWe would be happy to provide further clarification. Please let us know which specific details you would like us to explain so that we can give you an accurate response.\n\n${signoff}`,
+        friendly:
+          `${greeting}\n\nThanks for getting back to us about the quotation!\n\nI'd be happy to clarify anything that isn't clear. Just let me know which part you'd like more information about, and I'll help.\n\n${signoff}`,
+        concise:
+          `${greeting}\n\nThank you for your question about quotation ${quoteId}. Please let me know which details you would like clarified, and I'll be happy to help.\n\n${signoff}`,
+        phone:
+          `CALL OBJECTIVE: Understand and respond to the customer's information request.\n\n1. Ask what information they need.\n2. Listen carefully and clarify the question.\n3. Do not guess or promise information you cannot verify.\n4. Explain what you can accurately confirm.\n5. If further checking is required, agree on when you will respond.\n\nSuggested opening:\n${greeting} I'm following up on your question about quotation ${quoteId}. Could you tell me which details you'd like us to clarify?`
+      },
+
+      callback: {
+        subject: `Following up on your callback request`,
+        professional:
+          `${greeting}\n\nI am following up on your request for a callback regarding quotation ${quoteId}.\n\nPlease let us know if this is still a convenient time to discuss the proposal or suggest a time that works better for you.\n\n${signoff}`,
+        friendly:
+          `${greeting}\n\nI'm getting back to you as requested about quotation ${quoteId}.\n\nIs now a good time to talk, or would another time be more convenient?\n\n${signoff}`,
+        concise:
+          `${greeting}\n\nI'm following up on your callback request about quotation ${quoteId}. Is now a convenient time to speak?\n\n${signoff}`,
+        phone:
+          `CALL OBJECTIVE: Return the customer's requested callback.\n\n1. Identify yourself and refer to their callback request.\n2. Confirm whether now is a convenient time.\n3. Ask what they would like to discuss about quotation ${quoteId}.\n4. Record the conversation and any agreed next step.\n\nSuggested opening:\n${greeting} I'm returning your requested call regarding quotation ${quoteId}. Is now a convenient time?`
+      },
+
+      negotiation: {
+        subject: `Following up on our discussion about quotation ${quoteId}`,
+        professional:
+          `${greeting}\n\nThank you for discussing our ${details} with us.\n\nI would like to follow up on the points we discussed and understand whether there are any remaining questions or items that need clarification before you make a decision.\n\nPlease let us know how you would like to proceed.\n\n${signoff}`,
+        friendly:
+          `${greeting}\n\nThanks for taking the time to discuss our quotation with us.\n\nI wanted to check whether you've had any further thoughts about the points we discussed or if there's anything else you'd like to work through together.\n\n${signoff}`,
+        concise:
+          `${greeting}\n\nI'm following up on our discussion about quotation ${quoteId}. Are there any remaining points you'd like us to clarify before moving forward?\n\n${signoff}`,
+        phone:
+          `CALL OBJECTIVE: Continue the existing negotiation constructively.\n\n1. Recap the points already discussed.\n2. Ask which items remain unresolved.\n3. Clarify what can and cannot be changed.\n4. Do not offer an unapproved discount or commitment.\n5. Agree on the next action.\n\nSuggested opening:\n${greeting} I'm following up on our previous discussion about quotation ${quoteId}. I'd like to see whether there are any remaining points we can clarify.`
+      },
+
+      final: {
+        subject: `Final follow-up regarding quotation ${quoteId}`,
+        professional:
+          `${greeting}\n\nI am making one final follow-up regarding our ${details}.\n\nIf you are still considering the proposal, please let us know whether you need additional information or time. If your plans have changed, we would also appreciate a brief update so that we can keep our records accurate.\n\nThank you for your time and consideration.\n\n${signoff}`,
+        friendly:
+          `${greeting}\n\nI'm checking in one last time about our ${details}.\n\nIf you're still interested, we'd be happy to help with any questions. If your plans have changed, that's absolutely fine too — a quick update would help us keep everything up to date.\n\nThanks for your time!\n\n${signoff}`,
+        concise:
+          `${greeting}\n\nThis is our final follow-up regarding quotation ${quoteId}. Please let us know if you wish to proceed or if your plans have changed.\n\nThank you for your time.\n\n${signoff}`,
+        phone:
+          `CALL OBJECTIVE: Make a respectful final attempt to establish the quotation's status.\n\n1. Refer to quotation ${quoteId}.\n2. Ask whether the customer is still considering the proposal.\n3. Ask whether they would like to proceed, need more time, or have decided not to proceed.\n4. Respect their response. Do not pressure them.\n5. Update the quotation status and stop further follow-up if they decline or request no contact.\n\nSuggested opening:\n${greeting} I'm making a final check-in about quotation ${quoteId}. I wanted to see whether this is still something you're considering.`
+      }
+    };
+
+    const selected = messages[purpose];
+
+    if (!selected) {
+      alert("Please select a valid message purpose.");
+      return;
+    }
+
+    const toneKey = tone.toLowerCase();
+    this.messageSubject = isEmail ? selected.subject : "";
+    this.messageBody = isPhone
+      ? selected.phone
+      : selected[toneKey];
+
+    const subjectInput = document.getElementById("message-subject");
+    const bodyInput = document.getElementById("message-body");
+    const status = document.getElementById("message-draft-status");
+    const copyButton = document.getElementById("copy-message-button");
+
+    if (subjectInput) subjectInput.value = this.messageSubject;
+    if (bodyInput) bodyInput.value = this.messageBody;
+    if (status) status.textContent = "Draft ready — review before sending";
+    if (copyButton) copyButton.disabled = false;
+
+    this.updateMessageChannelDisplay();
+    this.updateMessageCharacterCount();
+  },
+
+  updateMessageCharacterCount() {
+    const body = document.getElementById("message-body");
+    const counter = document.getElementById("message-character-count");
+
+    if (body && counter) {
+      counter.textContent = `${body.value.length} characters`;
+    }
+  },
+
+  async copyMessage() {
+    const body = document.getElementById("message-body");
+    const subject = document.getElementById("message-subject");
+
+    if (!body || !body.value.trim()) {
+      alert("Generate or write a message before copying.");
+      return;
+    }
+
+    this.messageBody = body.value;
+
+    if (subject) {
+      this.messageSubject = subject.value;
+    }
+
+    let textToCopy = this.messageBody;
+
+    if (this.messageChannel === "Email" && this.messageSubject.trim()) {
+      textToCopy =
+        `Subject: ${this.messageSubject.trim()}\n\n${this.messageBody}`;
+    }
+
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(textToCopy);
+      } else {
+        const temporary = document.createElement("textarea");
+        temporary.value = textToCopy;
+        temporary.style.position = "fixed";
+        temporary.style.opacity = "0";
+        document.body.appendChild(temporary);
+        temporary.select();
+
+        const successful = document.execCommand("copy");
+        temporary.remove();
+
+        if (!successful) {
+          throw new Error("Clipboard copy was not successful.");
+        }
+      }
+
+      alert("Message copied. You can now paste it into your chosen channel.");
+    } catch (error) {
+      console.error("Unable to copy message:", error);
+      alert("The message could not be copied automatically. Please select the text and copy it manually.");
     }
   },
 
@@ -1229,7 +1727,6 @@ const ORK = {
     const addDays = (date, days) => {
       const result = new Date(date);
       result.setDate(result.getDate() + days);
-
       return this.localDateKey(result);
     };
 
@@ -1238,10 +1735,7 @@ const ORK = {
     const activeQuotes = this.state.quotes.filter(quote => {
       return !quote.doNotContact &&
         ![
-          "Accepted",
-          "Declined",
-          "Expired",
-          "Closed - No Response"
+          "Accepted", "Declined", "Expired", "Closed - No Response"
         ].includes(quote.status) &&
         Boolean(quote.nextFollowUpDate);
     });
@@ -1252,16 +1746,14 @@ const ORK = {
         description: "Follow-ups that have passed their scheduled date.",
         className: "planner-overdue",
         quotes: activeQuotes.filter(q =>
-          q.nextFollowUpDate < todayKey
-        )
+          q.nextFollowUpDate < todayKey)
       },
       {
         title: "Due Today",
         description: "Customers who need attention today.",
         className: "planner-today",
         quotes: activeQuotes.filter(q =>
-          q.nextFollowUpDate === todayKey
-        )
+          q.nextFollowUpDate === todayKey)
       },
       {
         title: "Next 7 Days",
@@ -1269,22 +1761,19 @@ const ORK = {
         className: "planner-soon",
         quotes: activeQuotes.filter(q =>
           q.nextFollowUpDate > todayKey &&
-          q.nextFollowUpDate <= sevenDaysLater
-        )
+          q.nextFollowUpDate <= sevenDaysLater)
       },
       {
         title: "Upcoming",
         description: "Follow-ups scheduled beyond the next seven days.",
         className: "planner-upcoming",
         quotes: activeQuotes.filter(q =>
-          q.nextFollowUpDate > sevenDaysLater
-        )
+          q.nextFollowUpDate > sevenDaysLater)
       }
     ];
 
     const total = groups.reduce(
-      (sum, group) => sum + group.quotes.length,
-      0
+      (sum, group) => sum + group.quotes.length, 0
     );
 
     const groupHTML = groups.map(group => {
@@ -1317,17 +1806,14 @@ const ORK = {
                     <th>Recommended Action</th>
                   </tr>
                 </thead>
-
                 <tbody>
                   ${sorted.map(q => `
                     <tr>
                       <td><strong>${this.escape(q.id)}</strong></td>
-
                       <td>
                         <strong>${this.escape(q.customerName)}</strong>
                         <small>${this.escape(q.businessName || "")}</small>
                       </td>
-
                       <td>${this.formatMoney(q.amount, q.currency)}</td>
                       <td>${this.escape(q.nextFollowUpDate)}</td>
                       <td>${this.escape(q.channel || "Not specified")}</td>
@@ -1351,10 +1837,7 @@ const ORK = {
     const unscheduled = this.state.quotes.filter(q =>
       !q.doNotContact &&
       ![
-        "Accepted",
-        "Declined",
-        "Expired",
-        "Closed - No Response"
+        "Accepted", "Declined", "Expired", "Closed - No Response"
       ].includes(q.status) &&
       !q.nextFollowUpDate
     ).length;
@@ -1372,23 +1855,16 @@ const ORK = {
 
       <section class="planner-summary">
         <div class="planner-summary-card">
-          <span>Active Follow-ups</span>
-          <strong>${total}</strong>
+          <span>Active Follow-ups</span><strong>${total}</strong>
         </div>
-
         <div class="planner-summary-card">
-          <span>Overdue</span>
-          <strong>${groups[0].quotes.length}</strong>
+          <span>Overdue</span><strong>${groups[0].quotes.length}</strong>
         </div>
-
         <div class="planner-summary-card">
-          <span>Due Today</span>
-          <strong>${groups[1].quotes.length}</strong>
+          <span>Due Today</span><strong>${groups[1].quotes.length}</strong>
         </div>
-
         <div class="planner-summary-card">
-          <span>Needs a Date</span>
-          <strong>${unscheduled}</strong>
+          <span>Needs a Date</span><strong>${unscheduled}</strong>
         </div>
       </section>
 
