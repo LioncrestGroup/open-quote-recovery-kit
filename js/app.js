@@ -172,18 +172,232 @@ const ORK = {
     });
 
     if (view === "dashboard") {
-      document.getElementById("main-content").innerHTML = this.dashboardHTML;
-    } else if (view === "quotes") {
-      this.renderQuotes();
-    } else {
-      document.getElementById("main-content").innerHTML =
-        this.getPlaceholder(view, titles[view]);
-    }
+  document.getElementById("main-content").innerHTML = this.dashboardHTML;
+} else if (view === "quotes") {
+  this.renderQuotes();
+} else if (view === "planner") {
+  this.renderPlanner();
+} else {
+  document.getElementById("main-content").innerHTML =
+    this.getPlaceholder(view, titles[view]);
+}
 
     window.scrollTo({ top: 0, behavior: "smooth" });
   },
 
   getPlaceholder(view, title) {
+    
+renderPlanner() {
+  const main = document.getElementById("main-content");
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const dateKey = date => {
+    const d = new Date(date);
+    return Number.isNaN(d.getTime()) ? "" : d.toISOString().slice(0, 10);
+  };
+
+  const todayKey = [
+    today.getFullYear(),
+    String(today.getMonth() + 1).padStart(2, "0"),
+    String(today.getDate()).padStart(2, "0")
+  ].join("-");
+
+  const addDays = (date, days) => {
+    const result = new Date(date);
+    result.setDate(result.getDate() + days);
+    return [
+      result.getFullYear(),
+      String(result.getMonth() + 1).padStart(2, "0"),
+      String(result.getDate()).padStart(2, "0")
+    ].join("-");
+  };
+
+  const sevenDaysLater = addDays(today, 7);
+
+  const activeQuotes = this.state.quotes.filter(quote => {
+    return !quote.doNotContact &&
+      ![
+        "Accepted",
+        "Declined",
+        "Expired",
+        "Closed - No Response"
+      ].includes(quote.status) &&
+      Boolean(quote.nextFollowUpDate);
+  });
+
+  const groups = [
+    {
+      title: "Overdue",
+      description: "Follow-ups that have passed their scheduled date.",
+      className: "planner-overdue",
+      quotes: activeQuotes.filter(q =>
+        q.nextFollowUpDate < todayKey
+      )
+    },
+    {
+      title: "Due Today",
+      description: "Customers who need attention today.",
+      className: "planner-today",
+      quotes: activeQuotes.filter(q =>
+        q.nextFollowUpDate === todayKey
+      )
+    },
+    {
+      title: "Next 7 Days",
+      description: "Follow-ups scheduled within the next seven days.",
+      className: "planner-soon",
+      quotes: activeQuotes.filter(q =>
+        q.nextFollowUpDate > todayKey &&
+        q.nextFollowUpDate <= sevenDaysLater
+      )
+    },
+    {
+      title: "Upcoming",
+      description: "Follow-ups scheduled beyond the next seven days.",
+      className: "planner-upcoming",
+      quotes: activeQuotes.filter(q =>
+        q.nextFollowUpDate > sevenDaysLater
+      )
+    }
+  ];
+
+  const total = groups.reduce(
+    (sum, group) => sum + group.quotes.length, 0
+  );
+
+  const groupHTML = groups.map(group => {
+    const sorted = [...group.quotes].sort((a, b) =>
+      a.nextFollowUpDate.localeCompare(b.nextFollowUpDate)
+    );
+
+    return `
+      <section class="panel planner-section ${group.className}">
+        <div class="panel-heading">
+          <div>
+            <h2>${group.title}
+              <span class="planner-count">${sorted.length}</span>
+            </h2>
+            <p>${group.description}</p>
+          </div>
+        </div>
+
+        ${sorted.length ? `
+          <div class="table-wrap">
+            <table class="quote-table planner-table">
+              <thead>
+                <tr>
+                  <th>Quote ID</th>
+                  <th>Customer</th>
+                  <th>Quote Amount</th>
+                  <th>Follow-up Date</th>
+                  <th>Channel</th>
+                  <th>Assigned To</th>
+                  <th>Recommended Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${sorted.map(q => `
+                  <tr>
+                    <td><strong>${this.escape(q.id)}</strong></td>
+                    <td>
+                      <strong>${this.escape(q.customerName)}</strong>
+                      <small>${this.escape(q.businessName || "")}</small>
+                    </td>
+                    <td>${this.formatMoney(q.amount, q.currency)}</td>
+                    <td>${this.escape(q.nextFollowUpDate)}</td>
+                    <td>${this.escape(q.channel || "Not specified")}</td>
+                    <td>${this.escape(q.assignedTo || "Unassigned")}</td>
+                    <td>${this.getRecommendedAction(q)}</td>
+                  </tr>
+                `).join("")}
+              </tbody>
+            </table>
+          </div>
+        ` : `
+          <div class="planner-empty">
+            <span>✓</span>
+            <p>No quotations in this category.</p>
+          </div>
+        `}
+      </section>
+    `;
+  }).join("");
+
+  const unscheduled = this.state.quotes.filter(q =>
+    !q.doNotContact &&
+    ![
+      "Accepted",
+      "Declined",
+      "Expired",
+      "Closed - No Response"
+    ].includes(q.status) &&
+    !q.nextFollowUpDate
+  ).length;
+
+  main.innerHTML = `
+    <section class="page-heading">
+      <div>
+        <p class="eyebrow">FOLLOW-UP MANAGEMENT</p>
+        <h1>Follow-up Planner</h1>
+        <p class="page-description">
+          Prioritise customer follow-ups and keep quotations moving.
+        </p>
+      </div>
+    </section>
+
+    <section class="planner-summary">
+      <div class="planner-summary-card">
+        <span>Active Follow-ups</span>
+        <strong>${total}</strong>
+      </div>
+      <div class="planner-summary-card">
+        <span>Overdue</span>
+        <strong>${groups[0].quotes.length}</strong>
+      </div>
+      <div class="planner-summary-card">
+        <span>Due Today</span>
+        <strong>${groups[1].quotes.length}</strong>
+      </div>
+      <div class="planner-summary-card">
+        <span>Needs a Date</span>
+        <strong>${unscheduled}</strong>
+      </div>
+    </section>
+
+    ${groupHTML}
+
+    <p class="planner-note">
+      Follow-up priorities are calculated from the dates and statuses
+      recorded in your Quote Register. Records without a scheduled
+      follow-up date are not assigned an invented date.
+    </p>
+  `;
+},
+
+getRecommendedAction(quote) {
+  const status = this.getFollowUpStatus(quote);
+
+  if (status === "Overdue") {
+    return "Contact customer and confirm decision";
+  }
+
+  if (status === "Due today") {
+    return "Check progress and ask for an update";
+  }
+
+  if (quote.status === "Negotiating") {
+    return "Follow up on outstanding terms";
+  }
+
+  if (quote.status === "Draft") {
+    return "Finalise and send quotation";
+  }
+
+  return "Confirm receipt and ask about questions";
+},
+
     return `
       <section class="page-heading">
         <div>
