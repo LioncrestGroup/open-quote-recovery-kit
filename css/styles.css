@@ -563,8 +563,6 @@ input:focus, select:focus, textarea:focus {
   }
 }
 
-
-
 /* QUOTE REGISTER */
 
 .quote-toolbar {
@@ -687,16 +685,12 @@ input:focus, select:focus, textarea:focus {
   }
 }
 
-
-
 /* QUOTE REGISTER - VISUAL FIXES */
 
-/* Ensure hidden elements stay hidden */
 [hidden] {
   display: none !important;
 }
 
-/* Better action buttons */
 .quote-actions {
   display: flex;
   align-items: center;
@@ -736,7 +730,6 @@ input:focus, select:focus, textarea:focus {
   border-color: #c03939;
 }
 
-/* Improve quotation table spacing */
 .table-wrap {
   overflow-x: auto;
   width: 100%;
@@ -796,8 +789,6 @@ input:focus, select:focus, textarea:focus {
     width: 100%;
   }
 }
-
-
 
 /* FOLLOW-UP PLANNER */
 
@@ -891,3 +882,180 @@ input:focus, select:focus, textarea:focus {
   }
 }
 
+/* ACTIVITY LOG */
+
+#activity-form-container {
+  margin-bottom: 22px;
+}
+
+#activity-form {
+  width: 100%;
+}
+
+#activity-form .quote-form-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+#activity-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: #475467;
+  font-size: 11px;
+  font-weight: 650;
+}
+
+#activity-form input,
+#activity-form select,
+#activity-form textarea {
+  width: 100%;
+}
+
+#activity-customer-name {
+  background: #f8f9fb;
+  color: #667085;
+  cursor: not-allowed;
+}
+
+#activity-form textarea {
+  min-height: 95px;
+  resize: vertical;
+}
+
+#activity-form .wide-field {
+  grid-column: 1 / -1;
+}
+
+#activity-form .form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 22px;
+}
+
+#activity-form-container .panel {
+  margin-bottom: 0;
+}
+
+#activity-search {
+  min-width: 0;
+  flex: 1;
+}
+
+#activity-type-filter {
+  width: 210px;
+  flex-shrink: 0;
+}
+
+.activity-table {
+  width: 100%;
+  min-width: 1050px;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.activity-table th {
+  background: #f8f9fb;
+  color: #667085;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  padding: 14px 15px;
+  border-bottom: 1px solid var(--border);
+}
+
+.activity-table td {
+  padding: 15px;
+  border-bottom: 1px solid var(--border);
+  color: #475467;
+  vertical-align: middle;
+}
+
+.activity-table td strong {
+  color: var(--navy);
+}
+
+.activity-table tbody tr:hover {
+  background: #fafbfc;
+}
+
+#activity-table-body .quote-actions {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+#activity-table-body .small-button {
+  border-radius: 6px;
+  padding: 7px 11px;
+  font-size: 11px;
+  font-weight: 650;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+#activity-table-body .small-button:not(.delete-button) {
+  background: #142238;
+  color: #ffffff;
+  border: 1px solid #142238;
+}
+
+#activity-table-body .small-button:not(.delete-button):hover {
+  background: #c49a52;
+  border-color: #c49a52;
+  color: #142238;
+}
+
+#activity-table-body .delete-button {
+  background: #fff5f5;
+  color: #c03939;
+  border: 1px solid #f0cccc;
+}
+
+#activity-table-body .delete-button:hover {
+  background: #c03939;
+  color: white;
+  border-color: #c03939;
+}
+
+#activity-empty {
+  min-height: 130px;
+}
+
+#new-activity-button {
+  white-space: nowrap;
+}
+
+@media (max-width: 850px) {
+  #activity-form .quote-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  #activity-form .wide-field {
+    grid-column: auto;
+  }
+
+  #activity-type-filter {
+    width: 100%;
+  }
+}
+
+@media (max-width: 600px) {
+  #activity-form .form-actions {
+    flex-direction: column;
+  }
+
+  #activity-form .form-actions button {
+    width: 100%;
+  }
+
+  #activity-form-container .panel {
+    padding: 16px;
+  }
+
+  .activity-table {
+    min-width: 1050px;
+  }
+}
