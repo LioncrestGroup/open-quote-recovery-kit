@@ -147,6 +147,10 @@ const ORK = {
       JSON.stringify(this.state)
     );
 
+    if (this.currentView === "dashboard") {
+  this.renderDashboard();
+}
+
     // Send the latest quotes and activities to Google Sheets.
     fetch(
       "https://script.google.com/macros/s/AKfycbyzbuwC-X2t0CX7Zt_vegr36PemkIptI2TUCOe5X2nf-P4TDBhhCfk34ABFWIh6fNp_/exec",
@@ -479,7 +483,7 @@ const ORK = {
     });
 
     if (view === "dashboard") {
-      main.innerHTML = this.dashboardHTML;
+      this.renderDashboard();
     } else if (view === "quotes") {
       this.renderQuotes();
     } else if (view === "planner") {
@@ -498,6 +502,171 @@ const ORK = {
 
     window.scrollTo({ top: 0, behavior: "smooth" });
   },
+
+  
+  renderDashboard() {
+    const main = document.getElementById("main-content");
+    if (!main) return;
+
+    const quotes = Array.isArray(this.state.quotes)
+      ? this.state.quotes
+      : [];
+
+    const activities = Array.isArray(this.state.activities)
+      ? this.state.activities
+      : [];
+
+    const closedStatuses = [
+      "Accepted",
+      "Declined",
+      "Expired",
+      "Closed - No Response"
+    ];
+
+    const outstanding = quotes.filter(
+      quote => !closedStatuses.includes(quote.status)
+    );
+
+    const dueFollowUps = quotes.filter(quote => {
+      const status = this.getFollowUpStatus(quote);
+      return status === "Overdue" || status === "Due today";
+    });
+
+    const accepted = quotes.filter(
+      quote => quote.status === "Accepted"
+    );
+
+    // Update the four dashboard figures.
+    const setText = (id, value) => {
+      const element = main.querySelector(`#${id}`);
+      if (element) element.textContent = value;
+    };
+
+    setText("total-quotes", quotes.length);
+    setText("outstanding-quotes", outstanding.length);
+    setText("due-followups", dueFollowUps.length);
+
+    // Keep different currencies separate.
+    const currencyTotals = {};
+
+    accepted.forEach(quote => {
+      const currency = quote.currency || "USD";
+      currencyTotals[currency] =
+        (currencyTotals[currency] || 0) +
+        (Number(quote.amount) || 0);
+    });
+
+    const acceptedValue = Object.entries(currencyTotals)
+      .map(([currency, amount]) =>
+        this.formatMoney(amount, currency)
+      )
+      .join(" · ");
+
+    setText(
+      "recovered-value",
+      acceptedValue || this.formatMoney(0, this.state.settings.defaultCurrency)
+    );
+
+    // Safely display user-entered text.
+    const escapeHTML = value =>
+      String(value ?? "").replace(/[&<>"']/g, character => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;"
+      })[character]);
+
+    // Follow-up Priorities.
+    const priorityPanel = main.querySelector(
+      ".dashboard-grid .panel:first-child .empty-state"
+    );
+
+    if (priorityPanel) {
+      const priorities = [...dueFollowUps]
+        .sort((a, b) =>
+          new Date(a.nextFollowUpDate) - new Date(b.nextFollowUpDate)
+        )
+        .slice(0, 5);
+
+      priorityPanel.innerHTML = priorities.length
+        ? `<div class="dashboard-data-list">
+            ${priorities.map(quote => `
+              <div class="dashboard-data-item">
+                <strong>${escapeHTML(quote.customerName)}</strong>
+                <p>${escapeHTML(quote.description)}</p>
+                <small>
+                  ${escapeHTML(this.getFollowUpStatus(quote))}
+                  · ${escapeHTML(quote.nextFollowUpDate)}
+                </small>
+              </div>
+            `).join("")}
+          </div>`
+        : `<div class="empty-icon">◷</div>
+           <strong>No follow-ups due right now</strong>
+           <p>Scheduled follow-ups requiring attention will appear here.</p>`;
+    }
+
+    // Quotation Status.
+    const statusPanel = main.querySelector(
+      ".dashboard-grid .panel:nth-child(2) .empty-state"
+    );
+
+    if (statusPanel) {
+      const statusCounts = {};
+
+      quotes.forEach(quote => {
+        const status = quote.status || "Unspecified";
+        statusCounts[status] = (statusCounts[status] || 0) + 1;
+      });
+
+      const statusRows = Object.entries(statusCounts);
+
+      statusPanel.innerHTML = statusRows.length
+        ? `<div class="dashboard-data-list">
+            ${statusRows.map(([status, count]) => `
+              <div class="dashboard-data-item">
+                <strong>${escapeHTML(status)}</strong>
+                <span>${count} quotation${count === 1 ? "" : "s"}</span>
+              </div>
+            `).join("")}
+          </div>`
+        : `<div class="empty-icon">▥</div>
+           <strong>No quotation data yet</strong>
+           <p>Your quotation status overview will appear here.</p>`;
+    }
+
+    // Recent Activity.
+    const recentPanel = main.querySelector(
+      ".recent-panel .empty-state"
+    );
+
+    if (recentPanel) {
+      const recentActivities = [...activities]
+        .sort((a, b) =>
+          new Date(b.date || 0) - new Date(a.date || 0)
+        )
+        .slice(0, 5);
+
+      recentPanel.innerHTML = recentActivities.length
+        ? `<div class="dashboard-data-list">
+            ${recentActivities.map(activity => `
+              <div class="dashboard-data-item">
+                <strong>${escapeHTML(activity.customerName || "Customer")}</strong>
+                <p>${escapeHTML(activity.activityType || "Activity")} 
+                  · ${escapeHTML(activity.channel || "")}</p>
+                <small>
+                  ${escapeHTML(activity.outcome || "")}
+                  · ${escapeHTML(activity.date || "")}
+                </small>
+              </div>
+            `).join("")}
+          </div>`
+        : `<strong>No activity recorded yet</strong>
+           <p>Customer interactions will appear here once recorded.</p>`;
+    }
+  },
+
 
   getPlaceholder(view, title) {
     return `
