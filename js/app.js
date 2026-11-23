@@ -483,7 +483,9 @@ const ORK = {
     });
 
     if (view === "dashboard") {
-      this.renderDashboard();
+  main.innerHTML = this.dashboardHTML;
+  this.renderDashboard();
+}
     } else if (view === "quotes") {
       this.renderQuotes();
     } else if (view === "planner") {
