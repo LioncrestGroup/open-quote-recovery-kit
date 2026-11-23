@@ -548,32 +548,147 @@ showView(view) {
     setText("outstanding-quotes", outstanding.length);
     setText("due-followups", dueFollowUps.length);
 
-    // Calculate outstanding quotation value by currency.
+    
+// Calculate outstanding quotation totals in their original currencies.
 const outstandingTotals = {};
 
 outstanding.forEach(quote => {
-  const currency = quote.currency || "USD";
+  const currency = (quote.currency || "USD").toUpperCase();
   const amount = Number(quote.amount) || 0;
 
   outstandingTotals[currency] =
     (outstandingTotals[currency] || 0) + amount;
 });
 
-const outstandingValue = Object.entries(outstandingTotals)
-  .map(([currency, amount]) => {
-    try {
-      return new Intl.NumberFormat("en-US", {
-        style: "currency",
-        currency: currency,
-        minimumFractionDigits: 2
-      }).format(amount);
-    } catch (error) {
-      return `${currency} ${amount.toFixed(2)}`;
-    }
-  })
-  .join(" · ");
+// Use the currency selected in Settings.
+const displayCurrency = (
+  this.state.settings.defaultCurrency || "USD"
+).toUpperCase();
 
-setText("outstanding-value", outstandingValue || "$0.00");
+const updateOutstandingValue = async () => {
+  const currencies = Object.keys(outstandingTotals);
+  const needsConversion = currencies.some(
+    currency => currency !== displayCurrency
+  );
+
+  let convertedTotal = 0;
+
+  // No exchange rate is needed if all quotes already use the selected currency.
+  if (!needsConversion) {
+    convertedTotal = outstandingTotals[displayCurrency] || 0;
+
+    setText(
+      "outstanding-value",
+      new Intl.NumberFormat("en-US", {
+        style: "currency",
+        currency: displayCurrency
+      }).format(convertedTotal)
+    );
+
+    setText("fx-updated", "No conversion needed");
+    return;
+  }
+
+  const cacheKey = `ork_fx_rates_${displayCurrency}`;
+  let cachedRates = null;
+  let rateData = null;
+
+  try {
+    cachedRates = JSON.parse(
+      localStorage.getItem(cacheKey) || "null"
+    );
+  } catch (error) {
+    console.warn("Could not read saved exchange rates:", error);
+  }
+
+  // Reuse cached rates until the provider's next update time.
+  if (
+    cachedRates &&
+    cachedRates.rates &&
+    cachedRates.nextUpdateUnix * 1000 > Date.now()
+  ) {
+    rateData = cachedRates;
+  } else {
+    try {
+      const response = await fetch(
+        `https://open.er-api.com/v6/latest/${displayCurrency}`
+      );
+
+      if (!response.ok) {
+        throw new Error("Exchange rate request failed.");
+      }
+
+      const data = await response.json();
+
+      if (data.result !== "success" || !data.rates) {
+        throw new Error("Exchange rate data is unavailable.");
+      }
+
+      rateData = {
+        rates: data.rates,
+        lastUpdated: data.time_last_update_utc,
+        nextUpdateUnix: data.time_next_update_unix
+      };
+
+      localStorage.setItem(
+        cacheKey,
+        JSON.stringify(rateData)
+      );
+
+    } catch (error) {
+      console.warn("Using saved exchange rates:", error);
+
+      // Use the previous rate if the API cannot be reached.
+      if (cachedRates && cachedRates.rates) {
+        rateData = cachedRates;
+      } else {
+        setText("outstanding-value", "Rate unavailable");
+        setText(
+          "fx-updated",
+          "Connect to the internet to retrieve exchange rates."
+        );
+        return;
+      }
+    }
+  }
+
+  // Convert every original currency into the selected display currency.
+  for (const [currency, amount] of Object.entries(outstandingTotals)) {
+    if (currency === displayCurrency) {
+      convertedTotal += amount;
+    } else {
+      const rate = Number(rateData.rates[currency]);
+
+      if (!rate || !Number.isFinite(rate)) {
+        setText("outstanding-value", "Conversion unavailable");
+        setText(
+          "fx-updated",
+          `No exchange rate available for ${currency}.`
+        );
+        return;
+      }
+
+      convertedTotal += amount / rate;
+    }
+  }
+
+  const formattedValue = new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: displayCurrency,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  }).format(convertedTotal);
+
+  setText("outstanding-value", formattedValue);
+
+  setText(
+    "fx-updated",
+    `Exchange rate updated: ${rateData.lastUpdated || "Saved rate"}`
+  );
+};
+
+updateOutstandingValue();
+
 
     // Keep different currencies separate.
     const currencyTotals = {};
