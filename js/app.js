@@ -2188,6 +2188,1395 @@ const ORK = {
     `;
   },
 
+
+  
+  // ==========================================
+  // SETTINGS, DATA IMPORT, EXPORT & BACKUP
+  // ==========================================
+
+  renderSettings() {
+    const main = document.getElementById("main-content");
+    if (!main) return;
+
+    const settings = this.state.settings || {};
+    const intervals = settings.followUpDays || [1, 3, 5, 7];
+
+    main.innerHTML = `
+      <section class="page-heading">
+        <div>
+          <p class="eyebrow">APPLICATION PREFERENCES</p>
+          <h1>Settings</h1>
+          <p class="page-description">
+            Manage preferences, import and export records, and protect your data.
+          </p>
+        </div>
+      </section>
+
+      <section class="panel settings-panel">
+        <div class="panel-heading">
+          <div>
+            <h2>1. General Settings</h2>
+            <p>Set your business details and follow-up preferences.</p>
+          </div>
+        </div>
+
+        <form id="settings-form">
+          <div class="quote-form-grid">
+            <label>
+              Business Name
+              <input name="businessName"
+                value="${this.escape(settings.businessName || "")}"
+                placeholder="Enter business name">
+            </label>
+
+            <label>
+              Default Currency
+              <select name="defaultCurrency">
+                ${this.currencies.map(currency => `
+                  <option value="${currency}"
+                    ${settings.defaultCurrency === currency ? "selected" : ""}>
+                    ${currency}
+                  </option>
+                `).join("")}
+              </select>
+            </label>
+
+            <label class="wide-field">
+              Default Follow-up Intervals (Days)
+              <input name="followUpDays"
+                value="${this.escape(intervals.join(", "))}"
+                placeholder="1, 3, 5, 7">
+              <small>Enter positive numbers separated by commas.</small>
+            </label>
+          </div>
+
+          <div class="form-actions">
+            <button type="submit" class="primary-button">
+              Save Settings
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <section class="panel settings-panel">
+        <div class="panel-heading">
+          <div>
+            <h2>2. Data Export</h2>
+            <p>Download your records for reporting and safekeeping.</p>
+          </div>
+        </div>
+
+        <div class="settings-action-list">
+          <div class="settings-action">
+            <div>
+              <strong>Export Quote Register as CSV</strong>
+              <p>Download all quotation records.</p>
+            </div>
+            <button type="button" class="secondary-button"
+              id="export-quotes-csv">Export Quotes</button>
+          </div>
+
+          <div class="settings-action">
+            <div>
+              <strong>Export Activity Log as CSV</strong>
+              <p>Download all customer interactions.</p>
+            </div>
+            <button type="button" class="secondary-button"
+              id="export-activities-csv">Export Activities</button>
+          </div>
+
+          <div class="settings-action">
+            <div>
+              <strong>Export All Data as JSON</strong>
+              <p>Download quotations, activities and settings together.</p>
+            </div>
+            <button type="button" class="primary-button"
+              id="download-backup">Download JSON Backup</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel settings-panel">
+        <div class="panel-heading">
+          <div>
+            <h2>3. Data Import</h2>
+            <p>Import CSV records. Each file will be checked before it is saved.</p>
+          </div>
+        </div>
+
+        <div class="settings-action-list">
+          <div class="settings-action">
+            <div>
+              <strong>Import Quote Register CSV</strong>
+              <p>Import quotations using a CSV exported from this application.</p>
+            </div>
+            <button type="button" class="secondary-button"
+              id="import-quotes-button">Choose Quote CSV</button>
+            <input type="file" id="import-quotes-file"
+              accept=".csv,text/csv" hidden>
+          </div>
+
+          <div class="settings-action">
+            <div>
+              <strong>Import Activity Log CSV</strong>
+              <p>Import customer interactions linked to existing Quote IDs.</p>
+            </div>
+            <button type="button" class="secondary-button"
+              id="import-activities-button">Choose Activity CSV</button>
+            <input type="file" id="import-activities-file"
+              accept=".csv,text/csv" hidden>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel settings-panel">
+        <div class="panel-heading">
+          <div>
+            <h2>4. Backup and Restore</h2>
+            <p>Protect your records and restore a previous application backup.</p>
+          </div>
+        </div>
+
+        <div class="settings-action-list">
+          <div class="settings-action">
+            <div>
+              <strong>Download Complete Backup</strong>
+              <p>Save all quotations, activities and settings in one JSON file.</p>
+            </div>
+            <button type="button" class="primary-button"
+              id="download-backup-secondary">Download Backup</button>
+          </div>
+
+          <div class="settings-action">
+            <div>
+              <strong>Restore from Backup</strong>
+              <p>Restore data from a previously downloaded JSON backup.</p>
+            </div>
+            <button type="button" class="secondary-button"
+              id="restore-backup-button">Choose Backup</button>
+            <input type="file" id="restore-backup-file"
+              accept=".json,application/json" hidden>
+          </div>
+        </div>
+      </section>
+
+      <p class="settings-footnote">
+        Your records are stored in this browser. Download backups regularly
+        and keep a copy somewhere safe. Restoring a backup replaces current data.
+      </p>
+    `;
+
+    const form = main.querySelector("#settings-form");
+    form.addEventListener("submit", event => {
+      event.preventDefault();
+      this.saveSettings(new FormData(form));
+    });
+
+    main.querySelector("#export-quotes-csv").addEventListener("click", () => {
+      this.exportQuotesCSV();
+    });
+
+    main.querySelector("#export-activities-csv").addEventListener("click", () => {
+      this.exportActivitiesCSV();
+    });
+
+    main.querySelector("#download-backup").addEventListener("click", () => {
+      this.downloadBackup();
+    });
+
+    main.querySelector("#download-backup-secondary").addEventListener("click", () => {
+      this.downloadBackup();
+    });
+
+    main.querySelector("#import-quotes-button").addEventListener("click", () => {
+      main.querySelector("#import-quotes-file").click();
+    });
+
+    main.querySelector("#import-activities-button").addEventListener("click", () => {
+      main.querySelector("#import-activities-file").click();
+    });
+
+    main.querySelector("#restore-backup-button").addEventListener("click", () => {
+      main.querySelector("#restore-backup-file").click();
+    });
+
+    main.querySelector("#import-quotes-file").addEventListener("change", event => {
+      const file = event.target.files[0];
+      if (file) this.importQuotesCSV(file);
+      event.target.value = "";
+    });
+
+    main.querySelector("#import-activities-file").addEventListener("change", event => {
+      const file = event.target.files[0];
+      if (file) this.importActivitiesCSV(file);
+      event.target.value = "";
+    });
+
+    main.querySelector("#restore-backup-file").addEventListener("change", event => {
+      const file = event.target.files[0];
+      if (file) this.restoreBackup(file);
+      event.target.value = "";
+    });
+  },
+
+  saveSettings(formData) {
+    const data = Object.fromEntries(formData.entries());
+
+    const intervals = String(data.followUpDays || "")
+      .split(",")
+      .map(value => Number(value.trim()))
+      .filter(value => Number.isInteger(value) && value > 0);
+
+    if (!intervals.length) {
+      alert("Enter at least one valid follow-up interval, such as 1, 3, 5, 7.");
+      return;
+    }
+
+    this.state.settings = {
+      ...this.state.settings,
+      businessName: String(data.businessName || "").trim(),
+      defaultCurrency: this.currencies.includes(data.defaultCurrency)
+        ? data.defaultCurrency
+        : "USD",
+      followUpDays: [...new Set(intervals)].sort((a, b) => a - b)
+    };
+
+    if (this.saveData()) {
+      alert("Settings saved successfully.");
+      this.renderSettings();
+    }
+  },
+
+  csvCell(value) {
+    let text = value === null || value === undefined ? "" : String(value);
+
+    // Reduce the risk of spreadsheet formula execution.
+    if (/^[=+\-@\t\r]/.test(text)) {
+      text = "'" + text;
+    }
+
+    return '"' + text.replace(/"/g, '""') + '"';
+  },
+
+  downloadCSV(filename, headers, rows) {
+    const csv = [
+      headers.map(value => this.csvCell(value)).join(","),
+      ...rows.map(row => row.map(value => this.csvCell(value)).join(","))
+    ].join("\r\n");
+
+    const blob = new Blob(["\uFEFF" + csv], {
+      type: "text/csv;charset=utf-8;"
+    });
+
+    this.downloadFile(filename, blob);
+  },
+
+  downloadFile(filename, blob) {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  },
+
+  exportQuotesCSV() {
+    const headers = [
+      "Quote ID", "Customer Name", "Business Name", "Customer Email",
+      "Customer Phone", "Quote Description", "Quote Amount", "Currency",
+      "Date Sent", "Expiry Date", "Status", "Last Contact Date",
+      "Next Follow-up Date", "Follow-up Channel", "Do Not Contact",
+      "Assigned To", "Internal Notes", "Created At"
+    ];
+
+    const rows = this.state.quotes.map(quote => [
+      quote.id, quote.customerName, quote.businessName, quote.email,
+      quote.phone, quote.description, quote.amount, quote.currency,
+      quote.dateSent, quote.expiryDate, quote.status, quote.lastContactDate,
+      quote.nextFollowUpDate, quote.channel,
+      quote.doNotContact ? "Yes" : "No",
+      quote.assignedTo, quote.notes, quote.createdAt
+    ]);
+
+    this.downloadCSV("open-quote-recovery-quotes.csv", headers, rows);
+  },
+
+  exportActivitiesCSV() {
+    const headers = [
+      "Activity ID", "Date", "Quote ID", "Customer Name",
+      "Activity Type", "Contact Channel", "Outcome", "Next Action",
+      "Next Follow-up Date", "Assigned To", "Notes"
+    ];
+
+    const rows = this.state.activities.map(activity => [
+      activity.id, activity.date, activity.quoteId, activity.customerName,
+      activity.activityType, activity.channel, activity.outcome,
+      activity.nextAction, activity.nextFollowUpDate,
+      activity.assignedTo, activity.notes
+    ]);
+
+    this.downloadCSV("open-quote-recovery-activities.csv", headers, rows);
+  },
+
+  downloadBackup() {
+    const backup = {
+      application: this.name,
+      version: this.version,
+      exportedAt: new Date().toISOString(),
+      data: this.state
+    };
+
+    const blob = new Blob(
+      [JSON.stringify(backup, null, 2)],
+      { type: "application/json" }
+    );
+
+    this.downloadFile("open-quote-recovery-backup.json", blob);
+  },
+
+  // CSV parser supports quoted fields, commas and line breaks inside quotes.
+  parseCSV(text) {
+    const rows = [];
+    let row = [];
+    let value = "";
+    let insideQuotes = false;
+
+    text = text.replace(/^\uFEFF/, "");
+
+    for (let i = 0; i < text.length; i++) {
+      const char = text[i];
+      const next = text[i + 1];
+
+      if (char === '"' && insideQuotes && next === '"') {
+        value += '"';
+        i++;
+      } else if (char === '"') {
+        insideQuotes = !insideQuotes;
+      } else if (char === "," && !insideQuotes) {
+        row.push(value);
+        value = "";
+      } else if ((char === "\n" || char === "\r") && !insideQuotes) {
+        if (char === "\r" && next === "\n") i++;
+        row.push(value);
+
+        if (row.some(cell => cell.trim() !== "")) {
+          rows.push(row);
+        }
+
+        row = [];
+        value = "";
+      } else {
+        value += char;
+      }
+    }
+
+    row.push(value);
+
+    if (row.some(cell => cell.trim() !== "")) {
+      rows.push(row);
+    }
+
+    if (!rows.length) {
+      throw new Error("The CSV file is empty.");
+    }
+
+    const headers = rows.shift().map(header =>
+      header.trim().toLowerCase().replace(/^\uFEFF/, "")
+    );
+
+    if (headers.some(header => !header)) {
+      throw new Error("The CSV contains an empty column heading.");
+    }
+
+    if (new Set(headers).size !== headers.length) {
+      throw new Error("The CSV contains duplicate column headings.");
+    }
+
+    return rows.map((cells, index) => {
+      if (cells.length !== headers.length) {
+        throw new Error(`CSV row ${index + 2} has an incorrect number of columns.`);
+      }
+
+      const record = {};
+      headers.forEach((header, column) => {
+        record[header] = cells[column].trim();
+      });
+
+      return record;
+    });
+  },
+
+  csvValue(record, ...names) {
+    for (const name of names) {
+      const key = name.toLowerCase();
+      if (record[key] !== undefined) return record[key];
+    }
+    return "";
+  },
+
+  async importQuotesCSV(file) {
+    try {
+      const records = this.parseCSV(await file.text());
+
+      const imported = records.map((record, index) => {
+        const quote = {
+          id: this.csvValue(record, "quote id", "id"),
+          customerName: this.csvValue(record, "customer name", "customername"),
+          businessName: this.csvValue(record, "business name", "businessname"),
+          email: this.csvValue(record, "customer email", "email"),
+          phone: this.csvValue(record, "customer phone", "phone"),
+          description: this.csvValue(record, "quote description", "description"),
+          amount: this.csvValue(record, "quote amount", "amount"),
+          currency: this.csvValue(record, "currency") || "USD",
+          dateSent: this.csvValue(record, "date sent", "datesent"),
+          expiryDate: this.csvValue(record, "expiry date", "expirydate"),
+          status: this.csvValue(record, "status") || "Sent",
+          lastContactDate: this.csvValue(record, "last contact date", "lastcontactdate"),
+          nextFollowUpDate: this.csvValue(record, "next follow-up date", "nextfollowupdate"),
+          channel: this.csvValue(record, "follow-up channel", "channel"),
+          doNotContact: ["yes", "true", "1"].includes(
+            this.csvValue(record, "do not contact", "donotcontact").toLowerCase()
+          ),
+          assignedTo: this.csvValue(record, "assigned to", "assignedto"),
+          notes: this.csvValue(record, "internal notes", "notes"),
+          createdAt: this.csvValue(record, "created at", "createdat") || new Date().toISOString()
+        };
+
+        if (!quote.id || !quote.customerName) {
+          throw new Error(`Row ${index + 2}: Quote ID and Customer Name are required.`);
+        }
+
+        if (!this.currencies.includes(quote.currency)) {
+          throw new Error(`Row ${index + 2}: Unsupported currency "${quote.currency}".`);
+        }
+
+        const validStatuses = [
+          "Draft", "Sent", "Follow-up", "Negotiating",
+          "Accepted", "Declined", "Expired", "Closed - No Response"
+        ];
+
+        if (!validStatuses.includes(quote.status)) {
+          throw new Error(`Row ${index + 2}: Invalid quotation status "${quote.status}".`);
+        }
+
+        if (quote.amount !== "" && !Number.isFinite(Number(quote.amount))) {
+          throw new Error(`Row ${index + 2}: Quote amount must be a valid number.`);
+        }
+
+        if (quote.amount !== "") quote.amount = Number(quote.amount);
+
+        return quote;
+      });
+
+      const ids = imported.map(quote => quote.id);
+
+      if (new Set(ids).size !== ids.length) {
+        throw new Error("The CSV contains duplicate Quote IDs.");
+      }
+
+      const existingIds = new Set(this.state.quotes.map(quote => quote.id));
+      const replacements = imported.filter(quote => existingIds.has(quote.id)).length;
+
+      const message =
+        `Validation successful.\n\n` +
+        `Records found: ${imported.length}\n` +
+        `New records: ${imported.length - replacements}\n` +
+        `Existing records to update: ${replacements}\n\n` +
+        `Continue with the import?`;
+
+      if (!confirm(message)) return;
+
+      const merged = new Map(this.state.quotes.map(quote => [quote.id, quote]));
+      imported.forEach(quote => {
+        merged.set(quote.id, { ...merged.get(quote.id), ...quote });
+      });
+
+      const previous = this.state.quotes;
+      this.state.quotes = Array.from(merged.values());
+
+      if (!this.saveData()) {
+        this.state.quotes = previous;
+        return;
+      }
+
+      alert(`${imported.length} quotation records imported successfully.`);
+      this.showView("quotes");
+    } catch (error) {
+      console.error("Quote CSV import failed:", error);
+      alert("Quote CSV import failed:\n" + error.message);
+    }
+  },
+
+  async importActivitiesCSV(file) {
+    try {
+      const records = this.parseCSV(await file.text());
+
+      const quoteIds = new Set(this.state.quotes.map(quote => quote.id));
+
+      const imported = records.map((record, index) => {
+        const activity = {
+          id: this.csvValue(record, "activity id", "id"),
+          date: this.csvValue(record, "date"),
+          quoteId: this.csvValue(record, "quote id", "quoteid"),
+          customerName: this.csvValue(record, "customer name", "customername"),
+          activityType: this.csvValue(record, "activity type", "activitytype"),
+          channel: this.csvValue(record, "contact channel", "channel"),
+          outcome: this.csvValue(record, "outcome"),
+          nextAction: this.csvValue(record, "next action", "nextaction"),
+          nextFollowUpDate: this.csvValue(record, "next follow-up date", "nextfollowupdate"),
+          assignedTo: this.csvValue(record, "assigned to", "assignedto"),
+          notes: this.csvValue(record, "notes"),
+          createdAt: new Date().toISOString()
+        };
+
+        if (!activity.id || !activity.date || !activity.quoteId) {
+          throw new Error(`Row ${index + 2}: Activity ID, Date and Quote ID are required.`);
+        }
+
+        if (!quoteIds.has(activity.quoteId)) {
+          throw new Error(
+            `Row ${index + 2}: Quote ID "${activity.quoteId}" does not exist in the Quote Register. Import the quotations first.`
+          );
+        }
+
+        const quote = this.state.quotes.find(item => item.id === activity.quoteId);
+        activity.customerName = quote.customerName || activity.customerName;
+
+        const activityTypes = [
+          "Initial Follow-up", "Phone Call", "Email", "SMS",
+          "WhatsApp", "Customer Response", "Negotiation", "Other"
+        ];
+
+        const outcomes = [
+          "No Answer", "Message Sent", "Interested",
+          "Requested More Information", "Negotiating", "Accepted",
+          "Declined", "Callback Requested", "No Further Contact", "Other"
+        ];
+
+        if (!activityTypes.includes(activity.activityType)) {
+          throw new Error(`Row ${index + 2}: Invalid activity type.`);
+        }
+
+        if (!outcomes.includes(activity.outcome)) {
+          throw new Error(`Row ${index + 2}: Invalid activity outcome.`);
+        }
+
+        return activity;
+      });
+
+      const ids = imported.map(activity => activity.id);
+
+      if (new Set(ids).size !== ids.length) {
+        throw new Error("The CSV contains duplicate Activity IDs.");
+      }
+
+      const existingIds = new Set(this.state.activities.map(activity => activity.id));
+      const replacements = imported.filter(activity => existingIds.has(activity.id)).length;
+
+      const message =
+        `Validation successful.\n\n` +
+        `Records found: ${imported.length}\n` +
+        `New records: ${imported.length - replacements}\n` +
+        `Existing records to update: ${replacements}\n\n` +
+        `Continue with the import?`;
+
+      if (!confirm(message)) return;
+
+      const merged = new Map(
+        this.state.activities.map(activity => [activity.id, activity])
+      );
+
+      imported.forEach(activity => {
+        merged.set(activity.id, { ...merged.get(activity.id), ...activity });
+      });
+
+      const previous = this.state.activities;
+      this.state.activities = Array.from(merged.values());
+
+      if (!this.saveData()) {
+        this.state.activities = previous;
+        return;
+      }
+
+      alert(`${imported.length} activity records imported successfully.`);
+      this.showView("activities");
+    } catch (error) {
+      console.error("Activity CSV import failed:", error);
+      alert("Activity CSV import failed:\n" + error.message);
+    }
+  },
+
+  async restoreBackup(file) {
+    if (!confirm(
+      "This will replace ALL current quotations, activities and settings with the backup contents. Have you downloaded a backup of your current data?"
+    )) {
+      return;
+    }
+
+    const previousState = this.state;
+
+    try {
+      const backup = JSON.parse(await file.text());
+      const data = backup.data;
+
+      if (
+        !data ||
+        !Array.isArray(data.quotes) ||
+        !Array.isArray(data.activities) ||
+        !data.settings ||
+        typeof data.settings !== "object" ||
+        Array.isArray(data.settings)
+      ) {
+        throw new Error("This is not a valid Open Quote Recovery Kit backup.");
+      }
+
+      const quoteIds = data.quotes.map(quote => quote.id);
+
+      if (quoteIds.some(id => !id) || new Set(quoteIds).size !== quoteIds.length) {
+        throw new Error("The backup contains missing or duplicate Quote IDs.");
+      }
+
+      const activityIds = data.activities.map(activity => activity.id);
+
+      if (
+        activityIds.some(id => !id) ||
+        new Set(activityIds).size !== activityIds.length
+      ) {
+        throw new Error("The backup contains missing or duplicate Activity IDs.");
+      }
+
+      const validQuoteIds = new Set(quoteIds);
+
+      for (const activity of data.activities) {
+        if (!validQuoteIds.has(activity.quoteId)) {
+          throw new Error(
+            `Activity ${activity.id} refers to a Quote ID that is missing from the backup.`
+          );
+        }
+      }
+
+      this.state = {
+        quotes: data.quotes,
+        activities: data.activities,
+        settings: {
+          ...previousState.settings,
+          ...data.settings
+        }
+      };
+
+      if (!this.saveData()) {
+        this.state = previousState;
+        return;
+      }
+
+      alert("Backup restored successfully.");
+      this.showView("dashboard");
+    } catch (error) {
+      this.state = previousState;
+      console.error("Backup restoration failed:", error);
+      alert("Unable to restore backup:\n" + error.message);
+    }
+  },
+
+  
+  // ==========================================
+  // SETTINGS, DATA IMPORT, EXPORT & BACKUP
+  // ==========================================
+
+  renderSettings() {
+    const main = document.getElementById("main-content");
+    if (!main) return;
+
+    const settings = this.state.settings || {};
+    const intervals = settings.followUpDays || [1, 3, 5, 7];
+
+    main.innerHTML = `
+      <section class="page-heading">
+        <div>
+          <p class="eyebrow">APPLICATION PREFERENCES</p>
+          <h1>Settings</h1>
+          <p class="page-description">
+            Manage preferences, import and export records, and protect your data.
+          </p>
+        </div>
+      </section>
+
+      <section class="panel settings-panel">
+        <div class="panel-heading">
+          <div>
+            <h2>1. General Settings</h2>
+            <p>Set your business details and follow-up preferences.</p>
+          </div>
+        </div>
+
+        <form id="settings-form">
+          <div class="quote-form-grid">
+            <label>
+              Business Name
+              <input name="businessName"
+                value="${this.escape(settings.businessName || "")}"
+                placeholder="Enter business name">
+            </label>
+
+            <label>
+              Default Currency
+              <select name="defaultCurrency">
+                ${this.currencies.map(currency => `
+                  <option value="${currency}"
+                    ${settings.defaultCurrency === currency ? "selected" : ""}>
+                    ${currency}
+                  </option>
+                `).join("")}
+              </select>
+            </label>
+
+            <label class="wide-field">
+              Default Follow-up Intervals (Days)
+              <input name="followUpDays"
+                value="${this.escape(intervals.join(", "))}"
+                placeholder="1, 3, 5, 7">
+              <small>Enter positive numbers separated by commas.</small>
+            </label>
+          </div>
+
+          <div class="form-actions">
+            <button type="submit" class="primary-button">
+              Save Settings
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <section class="panel settings-panel">
+        <div class="panel-heading">
+          <div>
+            <h2>2. Data Export</h2>
+            <p>Download your records for reporting and safekeeping.</p>
+          </div>
+        </div>
+
+        <div class="settings-action-list">
+          <div class="settings-action">
+            <div>
+              <strong>Export Quote Register as CSV</strong>
+              <p>Download all quotation records.</p>
+            </div>
+            <button type="button" class="secondary-button"
+              id="export-quotes-csv">Export Quotes</button>
+          </div>
+
+          <div class="settings-action">
+            <div>
+              <strong>Export Activity Log as CSV</strong>
+              <p>Download all customer interactions.</p>
+            </div>
+            <button type="button" class="secondary-button"
+              id="export-activities-csv">Export Activities</button>
+          </div>
+
+          <div class="settings-action">
+            <div>
+              <strong>Export All Data as JSON</strong>
+              <p>Download quotations, activities and settings together.</p>
+            </div>
+            <button type="button" class="primary-button"
+              id="download-backup">Download JSON Backup</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel settings-panel">
+        <div class="panel-heading">
+          <div>
+            <h2>3. Data Import</h2>
+            <p>Import CSV records. Each file will be checked before it is saved.</p>
+          </div>
+        </div>
+
+        <div class="settings-action-list">
+          <div class="settings-action">
+            <div>
+              <strong>Import Quote Register CSV</strong>
+              <p>Import quotations using a CSV exported from this application.</p>
+            </div>
+            <button type="button" class="secondary-button"
+              id="import-quotes-button">Choose Quote CSV</button>
+            <input type="file" id="import-quotes-file"
+              accept=".csv,text/csv" hidden>
+          </div>
+
+          <div class="settings-action">
+            <div>
+              <strong>Import Activity Log CSV</strong>
+              <p>Import customer interactions linked to existing Quote IDs.</p>
+            </div>
+            <button type="button" class="secondary-button"
+              id="import-activities-button">Choose Activity CSV</button>
+            <input type="file" id="import-activities-file"
+              accept=".csv,text/csv" hidden>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel settings-panel">
+        <div class="panel-heading">
+          <div>
+            <h2>4. Backup and Restore</h2>
+            <p>Protect your records and restore a previous application backup.</p>
+          </div>
+        </div>
+
+        <div class="settings-action-list">
+          <div class="settings-action">
+            <div>
+              <strong>Download Complete Backup</strong>
+              <p>Save all quotations, activities and settings in one JSON file.</p>
+            </div>
+            <button type="button" class="primary-button"
+              id="download-backup-secondary">Download Backup</button>
+          </div>
+
+          <div class="settings-action">
+            <div>
+              <strong>Restore from Backup</strong>
+              <p>Restore data from a previously downloaded JSON backup.</p>
+            </div>
+            <button type="button" class="secondary-button"
+              id="restore-backup-button">Choose Backup</button>
+            <input type="file" id="restore-backup-file"
+              accept=".json,application/json" hidden>
+          </div>
+        </div>
+      </section>
+
+      <p class="settings-footnote">
+        Your records are stored in this browser. Download backups regularly
+        and keep a copy somewhere safe. Restoring a backup replaces current data.
+      </p>
+    `;
+
+    const form = main.querySelector("#settings-form");
+    form.addEventListener("submit", event => {
+      event.preventDefault();
+      this.saveSettings(new FormData(form));
+    });
+
+    main.querySelector("#export-quotes-csv").addEventListener("click", () => {
+      this.exportQuotesCSV();
+    });
+
+    main.querySelector("#export-activities-csv").addEventListener("click", () => {
+      this.exportActivitiesCSV();
+    });
+
+    main.querySelector("#download-backup").addEventListener("click", () => {
+      this.downloadBackup();
+    });
+
+    main.querySelector("#download-backup-secondary").addEventListener("click", () => {
+      this.downloadBackup();
+    });
+
+    main.querySelector("#import-quotes-button").addEventListener("click", () => {
+      main.querySelector("#import-quotes-file").click();
+    });
+
+    main.querySelector("#import-activities-button").addEventListener("click", () => {
+      main.querySelector("#import-activities-file").click();
+    });
+
+    main.querySelector("#restore-backup-button").addEventListener("click", () => {
+      main.querySelector("#restore-backup-file").click();
+    });
+
+    main.querySelector("#import-quotes-file").addEventListener("change", event => {
+      const file = event.target.files[0];
+      if (file) this.importQuotesCSV(file);
+      event.target.value = "";
+    });
+
+    main.querySelector("#import-activities-file").addEventListener("change", event => {
+      const file = event.target.files[0];
+      if (file) this.importActivitiesCSV(file);
+      event.target.value = "";
+    });
+
+    main.querySelector("#restore-backup-file").addEventListener("change", event => {
+      const file = event.target.files[0];
+      if (file) this.restoreBackup(file);
+      event.target.value = "";
+    });
+  },
+
+  saveSettings(formData) {
+    const data = Object.fromEntries(formData.entries());
+
+    const intervals = String(data.followUpDays || "")
+      .split(",")
+      .map(value => Number(value.trim()))
+      .filter(value => Number.isInteger(value) && value > 0);
+
+    if (!intervals.length) {
+      alert("Enter at least one valid follow-up interval, such as 1, 3, 5, 7.");
+      return;
+    }
+
+    this.state.settings = {
+      ...this.state.settings,
+      businessName: String(data.businessName || "").trim(),
+      defaultCurrency: this.currencies.includes(data.defaultCurrency)
+        ? data.defaultCurrency
+        : "USD",
+      followUpDays: [...new Set(intervals)].sort((a, b) => a - b)
+    };
+
+    if (this.saveData()) {
+      alert("Settings saved successfully.");
+      this.renderSettings();
+    }
+  },
+
+  csvCell(value) {
+    let text = value === null || value === undefined ? "" : String(value);
+
+    // Reduce the risk of spreadsheet formula execution.
+    if (/^[=+\-@\t\r]/.test(text)) {
+      text = "'" + text;
+    }
+
+    return '"' + text.replace(/"/g, '""') + '"';
+  },
+
+  downloadCSV(filename, headers, rows) {
+    const csv = [
+      headers.map(value => this.csvCell(value)).join(","),
+      ...rows.map(row => row.map(value => this.csvCell(value)).join(","))
+    ].join("\r\n");
+
+    const blob = new Blob(["\uFEFF" + csv], {
+      type: "text/csv;charset=utf-8;"
+    });
+
+    this.downloadFile(filename, blob);
+  },
+
+  downloadFile(filename, blob) {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  },
+
+  exportQuotesCSV() {
+    const headers = [
+      "Quote ID", "Customer Name", "Business Name", "Customer Email",
+      "Customer Phone", "Quote Description", "Quote Amount", "Currency",
+      "Date Sent", "Expiry Date", "Status", "Last Contact Date",
+      "Next Follow-up Date", "Follow-up Channel", "Do Not Contact",
+      "Assigned To", "Internal Notes", "Created At"
+    ];
+
+    const rows = this.state.quotes.map(quote => [
+      quote.id, quote.customerName, quote.businessName, quote.email,
+      quote.phone, quote.description, quote.amount, quote.currency,
+      quote.dateSent, quote.expiryDate, quote.status, quote.lastContactDate,
+      quote.nextFollowUpDate, quote.channel,
+      quote.doNotContact ? "Yes" : "No",
+      quote.assignedTo, quote.notes, quote.createdAt
+    ]);
+
+    this.downloadCSV("open-quote-recovery-quotes.csv", headers, rows);
+  },
+
+  exportActivitiesCSV() {
+    const headers = [
+      "Activity ID", "Date", "Quote ID", "Customer Name",
+      "Activity Type", "Contact Channel", "Outcome", "Next Action",
+      "Next Follow-up Date", "Assigned To", "Notes"
+    ];
+
+    const rows = this.state.activities.map(activity => [
+      activity.id, activity.date, activity.quoteId, activity.customerName,
+      activity.activityType, activity.channel, activity.outcome,
+      activity.nextAction, activity.nextFollowUpDate,
+      activity.assignedTo, activity.notes
+    ]);
+
+    this.downloadCSV("open-quote-recovery-activities.csv", headers, rows);
+  },
+
+  downloadBackup() {
+    const backup = {
+      application: this.name,
+      version: this.version,
+      exportedAt: new Date().toISOString(),
+      data: this.state
+    };
+
+    const blob = new Blob(
+      [JSON.stringify(backup, null, 2)],
+      { type: "application/json" }
+    );
+
+    this.downloadFile("open-quote-recovery-backup.json", blob);
+  },
+
+  // CSV parser supports quoted fields, commas and line breaks inside quotes.
+  parseCSV(text) {
+    const rows = [];
+    let row = [];
+    let value = "";
+    let insideQuotes = false;
+
+    text = text.replace(/^\uFEFF/, "");
+
+    for (let i = 0; i < text.length; i++) {
+      const char = text[i];
+      const next = text[i + 1];
+
+      if (char === '"' && insideQuotes && next === '"') {
+        value += '"';
+        i++;
+      } else if (char === '"') {
+        insideQuotes = !insideQuotes;
+      } else if (char === "," && !insideQuotes) {
+        row.push(value);
+        value = "";
+      } else if ((char === "\n" || char === "\r") && !insideQuotes) {
+        if (char === "\r" && next === "\n") i++;
+        row.push(value);
+
+        if (row.some(cell => cell.trim() !== "")) {
+          rows.push(row);
+        }
+
+        row = [];
+        value = "";
+      } else {
+        value += char;
+      }
+    }
+
+    row.push(value);
+
+    if (row.some(cell => cell.trim() !== "")) {
+      rows.push(row);
+    }
+
+    if (!rows.length) {
+      throw new Error("The CSV file is empty.");
+    }
+
+    const headers = rows.shift().map(header =>
+      header.trim().toLowerCase().replace(/^\uFEFF/, "")
+    );
+
+    if (headers.some(header => !header)) {
+      throw new Error("The CSV contains an empty column heading.");
+    }
+
+    if (new Set(headers).size !== headers.length) {
+      throw new Error("The CSV contains duplicate column headings.");
+    }
+
+    return rows.map((cells, index) => {
+      if (cells.length !== headers.length) {
+        throw new Error(`CSV row ${index + 2} has an incorrect number of columns.`);
+      }
+
+      const record = {};
+      headers.forEach((header, column) => {
+        record[header] = cells[column].trim();
+      });
+
+      return record;
+    });
+  },
+
+  csvValue(record, ...names) {
+    for (const name of names) {
+      const key = name.toLowerCase();
+      if (record[key] !== undefined) return record[key];
+    }
+    return "";
+  },
+
+  async importQuotesCSV(file) {
+    try {
+      const records = this.parseCSV(await file.text());
+
+      const imported = records.map((record, index) => {
+        const quote = {
+          id: this.csvValue(record, "quote id", "id"),
+          customerName: this.csvValue(record, "customer name", "customername"),
+          businessName: this.csvValue(record, "business name", "businessname"),
+          email: this.csvValue(record, "customer email", "email"),
+          phone: this.csvValue(record, "customer phone", "phone"),
+          description: this.csvValue(record, "quote description", "description"),
+          amount: this.csvValue(record, "quote amount", "amount"),
+          currency: this.csvValue(record, "currency") || "USD",
+          dateSent: this.csvValue(record, "date sent", "datesent"),
+          expiryDate: this.csvValue(record, "expiry date", "expirydate"),
+          status: this.csvValue(record, "status") || "Sent",
+          lastContactDate: this.csvValue(record, "last contact date", "lastcontactdate"),
+          nextFollowUpDate: this.csvValue(record, "next follow-up date", "nextfollowupdate"),
+          channel: this.csvValue(record, "follow-up channel", "channel"),
+          doNotContact: ["yes", "true", "1"].includes(
+            this.csvValue(record, "do not contact", "donotcontact").toLowerCase()
+          ),
+          assignedTo: this.csvValue(record, "assigned to", "assignedto"),
+          notes: this.csvValue(record, "internal notes", "notes"),
+          createdAt: this.csvValue(record, "created at", "createdat") || new Date().toISOString()
+        };
+
+        if (!quote.id || !quote.customerName) {
+          throw new Error(`Row ${index + 2}: Quote ID and Customer Name are required.`);
+        }
+
+        if (!this.currencies.includes(quote.currency)) {
+          throw new Error(`Row ${index + 2}: Unsupported currency "${quote.currency}".`);
+        }
+
+        const validStatuses = [
+          "Draft", "Sent", "Follow-up", "Negotiating",
+          "Accepted", "Declined", "Expired", "Closed - No Response"
+        ];
+
+        if (!validStatuses.includes(quote.status)) {
+          throw new Error(`Row ${index + 2}: Invalid quotation status "${quote.status}".`);
+        }
+
+        if (quote.amount !== "" && !Number.isFinite(Number(quote.amount))) {
+          throw new Error(`Row ${index + 2}: Quote amount must be a valid number.`);
+        }
+
+        if (quote.amount !== "") quote.amount = Number(quote.amount);
+
+        return quote;
+      });
+
+      const ids = imported.map(quote => quote.id);
+
+      if (new Set(ids).size !== ids.length) {
+        throw new Error("The CSV contains duplicate Quote IDs.");
+      }
+
+      const existingIds = new Set(this.state.quotes.map(quote => quote.id));
+      const replacements = imported.filter(quote => existingIds.has(quote.id)).length;
+
+      const message =
+        `Validation successful.\n\n` +
+        `Records found: ${imported.length}\n` +
+        `New records: ${imported.length - replacements}\n` +
+        `Existing records to update: ${replacements}\n\n` +
+        `Continue with the import?`;
+
+      if (!confirm(message)) return;
+
+      const merged = new Map(this.state.quotes.map(quote => [quote.id, quote]));
+      imported.forEach(quote => {
+        merged.set(quote.id, { ...merged.get(quote.id), ...quote });
+      });
+
+      const previous = this.state.quotes;
+      this.state.quotes = Array.from(merged.values());
+
+      if (!this.saveData()) {
+        this.state.quotes = previous;
+        return;
+      }
+
+      alert(`${imported.length} quotation records imported successfully.`);
+      this.showView("quotes");
+    } catch (error) {
+      console.error("Quote CSV import failed:", error);
+      alert("Quote CSV import failed:\n" + error.message);
+    }
+  },
+
+  async importActivitiesCSV(file) {
+    try {
+      const records = this.parseCSV(await file.text());
+
+      const quoteIds = new Set(this.state.quotes.map(quote => quote.id));
+
+      const imported = records.map((record, index) => {
+        const activity = {
+          id: this.csvValue(record, "activity id", "id"),
+          date: this.csvValue(record, "date"),
+          quoteId: this.csvValue(record, "quote id", "quoteid"),
+          customerName: this.csvValue(record, "customer name", "customername"),
+          activityType: this.csvValue(record, "activity type", "activitytype"),
+          channel: this.csvValue(record, "contact channel", "channel"),
+          outcome: this.csvValue(record, "outcome"),
+          nextAction: this.csvValue(record, "next action", "nextaction"),
+          nextFollowUpDate: this.csvValue(record, "next follow-up date", "nextfollowupdate"),
+          assignedTo: this.csvValue(record, "assigned to", "assignedto"),
+          notes: this.csvValue(record, "notes"),
+          createdAt: new Date().toISOString()
+        };
+
+        if (!activity.id || !activity.date || !activity.quoteId) {
+          throw new Error(`Row ${index + 2}: Activity ID, Date and Quote ID are required.`);
+        }
+
+        if (!quoteIds.has(activity.quoteId)) {
+          throw new Error(
+            `Row ${index + 2}: Quote ID "${activity.quoteId}" does not exist in the Quote Register. Import the quotations first.`
+          );
+        }
+
+        const quote = this.state.quotes.find(item => item.id === activity.quoteId);
+        activity.customerName = quote.customerName || activity.customerName;
+
+        const activityTypes = [
+          "Initial Follow-up", "Phone Call", "Email", "SMS",
+          "WhatsApp", "Customer Response", "Negotiation", "Other"
+        ];
+
+        const outcomes = [
+          "No Answer", "Message Sent", "Interested",
+          "Requested More Information", "Negotiating", "Accepted",
+          "Declined", "Callback Requested", "No Further Contact", "Other"
+        ];
+
+        if (!activityTypes.includes(activity.activityType)) {
+          throw new Error(`Row ${index + 2}: Invalid activity type.`);
+        }
+
+        if (!outcomes.includes(activity.outcome)) {
+          throw new Error(`Row ${index + 2}: Invalid activity outcome.`);
+        }
+
+        return activity;
+      });
+
+      const ids = imported.map(activity => activity.id);
+
+      if (new Set(ids).size !== ids.length) {
+        throw new Error("The CSV contains duplicate Activity IDs.");
+      }
+
+      const existingIds = new Set(this.state.activities.map(activity => activity.id));
+      const replacements = imported.filter(activity => existingIds.has(activity.id)).length;
+
+      const message =
+        `Validation successful.\n\n` +
+        `Records found: ${imported.length}\n` +
+        `New records: ${imported.length - replacements}\n` +
+        `Existing records to update: ${replacements}\n\n` +
+        `Continue with the import?`;
+
+      if (!confirm(message)) return;
+
+      const merged = new Map(
+        this.state.activities.map(activity => [activity.id, activity])
+      );
+
+      imported.forEach(activity => {
+        merged.set(activity.id, { ...merged.get(activity.id), ...activity });
+      });
+
+      const previous = this.state.activities;
+      this.state.activities = Array.from(merged.values());
+
+      if (!this.saveData()) {
+        this.state.activities = previous;
+        return;
+      }
+
+      alert(`${imported.length} activity records imported successfully.`);
+      this.showView("activities");
+    } catch (error) {
+      console.error("Activity CSV import failed:", error);
+      alert("Activity CSV import failed:\n" + error.message);
+    }
+  },
+
+  async restoreBackup(file) {
+    if (!confirm(
+      "This will replace ALL current quotations, activities and settings with the backup contents. Have you downloaded a backup of your current data?"
+    )) {
+      return;
+    }
+
+    const previousState = this.state;
+
+    try {
+      const backup = JSON.parse(await file.text());
+      const data = backup.data;
+
+      if (
+        !data ||
+        !Array.isArray(data.quotes) ||
+        !Array.isArray(data.activities) ||
+        !data.settings ||
+        typeof data.settings !== "object" ||
+        Array.isArray(data.settings)
+      ) {
+        throw new Error("This is not a valid Open Quote Recovery Kit backup.");
+      }
+
+      const quoteIds = data.quotes.map(quote => quote.id);
+
+      if (quoteIds.some(id => !id) || new Set(quoteIds).size !== quoteIds.length) {
+        throw new Error("The backup contains missing or duplicate Quote IDs.");
+      }
+
+      const activityIds = data.activities.map(activity => activity.id);
+
+      if (
+        activityIds.some(id => !id) ||
+        new Set(activityIds).size !== activityIds.length
+      ) {
+        throw new Error("The backup contains missing or duplicate Activity IDs.");
+      }
+
+      const validQuoteIds = new Set(quoteIds);
+
+      for (const activity of data.activities) {
+        if (!validQuoteIds.has(activity.quoteId)) {
+          throw new Error(
+            `Activity ${activity.id} refers to a Quote ID that is missing from the backup.`
+          );
+        }
+      }
+
+      this.state = {
+        quotes: data.quotes,
+        activities: data.activities,
+        settings: {
+          ...previousState.settings,
+          ...data.settings
+        }
+      };
+
+      if (!this.saveData()) {
+        this.state = previousState;
+        return;
+      }
+
+      alert("Backup restored successfully.");
+      this.showView("dashboard");
+    } catch (error) {
+      this.state = previousState;
+      console.error("Backup restoration failed:", error);
+      alert("Unable to restore backup:\n" + error.message);
+    }
+  },
+
+  
+  
   getRecommendedAction(quote) {
     const status = this.getFollowUpStatus(quote);
 
