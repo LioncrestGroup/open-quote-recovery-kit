@@ -363,6 +363,8 @@ const ORK = {
       this.renderActivities();
     } else if (view === "messages") {
       this.renderMessages();
+    } else if (view === "analytics") {
+      this.renderAnalytics();
     } else {
       main.innerHTML = this.getPlaceholder(view, titles[view]);
     }
@@ -1716,6 +1718,314 @@ const ORK = {
     }
   },
 
+  // RECOVERY ANALYTICS
+
+  getAnalyticsData() {
+    const quotes = this.state.quotes;
+    const activities = this.state.activities;
+
+    const closedStatuses = [
+      "Accepted",
+      "Declined",
+      "Expired",
+      "Closed - No Response"
+    ];
+
+    const accepted = quotes.filter(q => q.status === "Accepted");
+    const declined = quotes.filter(q => q.status === "Declined");
+
+    const outstanding = quotes.filter(q =>
+      !closedStatuses.includes(q.status)
+    );
+
+    const decidedCount = accepted.length + declined.length;
+
+    const currencyTotals = {};
+
+    quotes.forEach(quote => {
+      const currency = quote.currency || this.state.settings.defaultCurrency || "USD";
+      const amount = Number(quote.amount) || 0;
+
+      if (!currencyTotals[currency]) {
+        currencyTotals[currency] = {
+          quoted: 0,
+          outstanding: 0,
+          accepted: 0,
+          declined: 0
+        };
+      }
+
+      currencyTotals[currency].quoted += amount;
+
+      if (!closedStatuses.includes(quote.status)) {
+        currencyTotals[currency].outstanding += amount;
+      }
+
+      if (quote.status === "Accepted") {
+        currencyTotals[currency].accepted += amount;
+      }
+
+      if (quote.status === "Declined") {
+        currencyTotals[currency].declined += amount;
+      }
+    });
+
+    const statusTotals = this.statuses.map(status => ({
+      status,
+      count: quotes.filter(q => q.status === status).length
+    })).filter(item => item.count > 0);
+
+    const outcomeTotals = this.activityOutcomes.map(outcome => ({
+      outcome,
+      count: activities.filter(a => a.outcome === outcome).length
+    })).filter(item => item.count > 0)
+      .sort((a, b) => b.count - a.count);
+
+    const now = new Date();
+    const monthlyTotals = [];
+
+    for (let i = 5; i >= 0; i--) {
+      const monthDate = new Date(
+        now.getFullYear(),
+        now.getMonth() - i,
+        1
+      );
+
+      const year = monthDate.getFullYear();
+      const month = String(monthDate.getMonth() + 1).padStart(2, "0");
+      const key = `${year}-${month}`;
+
+      const monthQuotes = quotes.filter(q =>
+        String(q.dateSent || "").startsWith(key)
+      );
+
+      monthlyTotals.push({
+        key,
+        label: monthDate.toLocaleDateString(undefined, {
+          month: "short",
+          year: "numeric"
+        }),
+        quoted: monthQuotes.length,
+        accepted: monthQuotes.filter(q => q.status === "Accepted").length
+      });
+    }
+
+    return {
+      total: quotes.length,
+      accepted: accepted.length,
+      declined: declined.length,
+      outstanding: outstanding.length,
+      decidedCount,
+      recoveryRate: decidedCount
+        ? (accepted.length / decidedCount) * 100
+        : 0,
+      activityCount: activities.length,
+      currencyTotals,
+      statusTotals,
+      outcomeTotals,
+      monthlyTotals
+    };
+  },
+
+  renderAnalytics() {
+    const main = document.getElementById("main-content");
+    if (!main) return;
+
+    const data = this.getAnalyticsData();
+
+    const currencyRows = Object.entries(data.currencyTotals)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([currency, totals]) => `
+        <tr>
+          <td><strong>${this.escape(currency)}</strong></td>
+          <td>${this.formatMoney(totals.quoted, currency)}</td>
+          <td>${this.formatMoney(totals.outstanding, currency)}</td>
+          <td>${this.formatMoney(totals.accepted, currency)}</td>
+          <td>${this.formatMoney(totals.declined, currency)}</td>
+        </tr>
+      `).join("");
+
+    const maxStatus = Math.max(
+      1,
+      ...data.statusTotals.map(item => item.count)
+    );
+
+    const statusRows = data.statusTotals.map(item => `
+      <div class="analytics-bar-item">
+        <div class="analytics-bar-heading">
+          <span>${this.escape(item.status)}</span>
+          <strong>${item.count}</strong>
+        </div>
+        <div class="analytics-track">
+          <div class="analytics-bar"
+            style="width:${(item.count / maxStatus) * 100}%"></div>
+        </div>
+      </div>
+    `).join("");
+
+    const maxOutcome = Math.max(
+      1,
+      ...data.outcomeTotals.map(item => item.count)
+    );
+
+    const outcomeRows = data.outcomeTotals.map(item => `
+      <div class="analytics-bar-item">
+        <div class="analytics-bar-heading">
+          <span>${this.escape(item.outcome)}</span>
+          <strong>${item.count}</strong>
+        </div>
+        <div class="analytics-track">
+          <div class="analytics-bar analytics-bar-gold"
+            style="width:${(item.count / maxOutcome) * 100}%"></div>
+        </div>
+      </div>
+    `).join("");
+
+    const maxMonthly = Math.max(
+      1,
+      ...data.monthlyTotals.map(item => item.quoted)
+    );
+
+    const monthlyRows = data.monthlyTotals.map(item => `
+      <div class="analytics-month-row">
+        <div class="analytics-month-label">
+          <strong>${this.escape(item.label)}</strong>
+          <span>${item.quoted} quotation${item.quoted === 1 ? "" : "s"}
+            · ${item.accepted} accepted</span>
+        </div>
+        <div class="analytics-track">
+          <div class="analytics-bar"
+            style="width:${(item.quoted / maxMonthly) * 100}%"></div>
+        </div>
+      </div>
+    `).join("");
+
+    main.innerHTML = `
+      <section class="page-heading">
+        <div>
+          <p class="eyebrow">BUSINESS PERFORMANCE</p>
+          <h1>Recovery Analytics</h1>
+          <p class="page-description">
+            Understand quotation outcomes, outstanding opportunities
+            and customer follow-up activity.
+          </p>
+        </div>
+      </section>
+
+      <section class="analytics-summary-grid">
+        <div class="analytics-summary-card">
+          <span>Total Quotations</span>
+          <strong>${data.total}</strong>
+          <small>All quotations recorded</small>
+        </div>
+
+        <div class="analytics-summary-card">
+          <span>Outstanding Quotes</span>
+          <strong>${data.outstanding}</strong>
+          <small>Not yet in a closed status</small>
+        </div>
+
+        <div class="analytics-summary-card">
+          <span>Accepted Quotes</span>
+          <strong>${data.accepted}</strong>
+          <small>Successfully converted</small>
+        </div>
+
+        <div class="analytics-summary-card">
+          <span>Recovery Rate</span>
+          <strong>${data.recoveryRate.toFixed(1)}%</strong>
+          <small>${data.accepted} accepted out of ${data.decidedCount} decided</small>
+        </div>
+      </section>
+
+      <section class="panel analytics-panel">
+        <div class="panel-heading">
+          <div>
+            <h2>Quotation Value by Currency</h2>
+            <p>
+              Values are grouped by currency. Different currencies
+              are never added together.
+            </p>
+          </div>
+        </div>
+
+        ${currencyRows ? `
+          <div class="table-wrap">
+            <table class="quote-table analytics-table">
+              <thead>
+                <tr>
+                  <th>Currency</th>
+                  <th>Total Quoted</th>
+                  <th>Outstanding</th>
+                  <th>Accepted</th>
+                  <th>Declined</th>
+                </tr>
+              </thead>
+              <tbody>${currencyRows}</tbody>
+            </table>
+          </div>
+        ` : `
+          <div class="analytics-empty">
+            No quotation values to analyse yet.
+          </div>
+        `}
+      </section>
+
+      <section class="analytics-two-column">
+        <div class="panel analytics-panel">
+          <div class="panel-heading">
+            <div>
+              <h2>Quotation Status Breakdown</h2>
+              <p>How your quotations are currently distributed.</p>
+            </div>
+          </div>
+
+          ${statusRows || `
+            <div class="analytics-empty">No quotation statuses available yet.</div>
+          `}
+        </div>
+
+        <div class="panel analytics-panel">
+          <div class="panel-heading">
+            <div>
+              <h2>Activity Outcomes</h2>
+              <p>${data.activityCount} customer interactions recorded.</p>
+            </div>
+          </div>
+
+          ${outcomeRows || `
+            <div class="analytics-empty">No activity outcomes recorded yet.</div>
+          `}
+        </div>
+      </section>
+
+      <section class="panel analytics-panel">
+        <div class="panel-heading">
+          <div>
+            <h2>Monthly Quotation Activity</h2>
+            <p>
+              Quotations recorded by their Date Sent over the last six months.
+              Accepted counts reflect their current status.
+            </p>
+          </div>
+        </div>
+
+        ${monthlyRows}
+      </section>
+
+      <p class="analytics-footnote">
+        <strong>How these figures are calculated:</strong>
+        Recovery Rate = Accepted quotations ÷ (Accepted + Declined quotations).
+        Outstanding includes quotations not marked Accepted, Declined,
+        Expired or Closed - No Response. Do Not Contact records remain
+        in outstanding totals if their quotation is still open.
+        Monthly figures are grouped by Date Sent, not the date a quotation
+        was accepted. These figures update automatically from your
+        Quote Register and Activity Log.
+      </p>
+    `;
+  },
+  
   renderPlanner() {
     const main = document.getElementById("main-content");
 
