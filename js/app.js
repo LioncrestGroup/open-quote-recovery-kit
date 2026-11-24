@@ -3234,6 +3234,548 @@ updateOutstandingValue();
           errors.push(`Row ${index + 2}: Duplicate Quote ID "${quote.id}" in the file.`);
         }
 
+        "use strict";
+/*
+  ORK Stage B: frontend foundation (additive).
+  Load AFTER app.js (or paste at the very end of app.js).
+  Adds: grouped 13-area navigation, honest "planned" module pages,
+  and a rebuilt Overview dashboard calculated only from stored records.
+  Does not touch the localStorage schema or any existing module.
+*/
+(function () {
+  if (typeof ORK === "undefined") {
+    console.error("ORK foundation: app.js must load first.");
+    return;
+  }
+
+  const CLOSED = ["Accepted", "Declined", "Expired", "Closed - No Response"];
+
+  const NAV = [
+    { group: "Workspace", items: [
+      { view: "dashboard", icon: "◈", label: "Overview" }] },
+    { group: "Sell", items: [
+      { view: "crm", icon: "☺", label: "CRM", planned: true },
+      { view: "pipeline", icon: "⇉", label: "Sales Pipeline", planned: true },
+      { view: "quotes", icon: "▤", label: "Quotations" },
+      { view: "proposals", icon: "❏", label: "Proposals", planned: true }] },
+    { group: "Get paid", items: [
+      { view: "invoices", icon: "▥", label: "Invoices", planned: true },
+      { view: "payments", icon: "⇄", label: "Payments", planned: true }] },
+    { group: "Engage", items: [
+      { view: "planner", icon: "◷", label: "Follow-up Centre" },
+      { view: "activities", icon: "☰", label: "Activity Log", sub: true },
+      { view: "messages", icon: "✉", label: "Communication Centre" }] },
+    { group: "Insight and admin", items: [
+      { view: "analytics", icon: "▲", label: "Reports" },
+      { view: "team", icon: "⚑", label: "Team and Tasks", planned: true },
+      { view: "integrations", icon: "⌁", label: "Integrations", planned: true },
+      { view: "settings", icon: "⚙", label: "Settings" }] }
+  ];
+
+  const TITLES = {
+    quotes: "Quotations", planner: "Follow-up Centre",
+    activities: "Activity Log", messages: "Communication Centre",
+    analytics: "Reports", settings: "Settings"
+  };
+
+  const PLANNED = {
+    crm: { title: "CRM", stage: "Stage C",
+      summary: "Customer profiles that tie together every quotation, invoice, payment, task and conversation.",
+      local: "Customer records, notes, tags and linked history can run in the browser first.",
+      backend: "Sharing customers between team members needs authentication and a database." },
+    pipeline: { title: "Sales Pipeline", stage: "Stage C",
+      summary: "Kanban and list views from New Lead to Won or Lost, with weighted pipeline value.",
+      local: "Stages, owners, values, lost reasons and links to quotations work in the browser.",
+      backend: "Per-user ownership rules need a backend." },
+    proposals: { title: "Proposals", stage: "Stage C",
+      summary: "Detailed offers with deliverables, terms and validity, convertible to quotations or invoices.",
+      local: "Drafting, statuses and printable PDF proposals work in the browser.",
+      backend: "'Viewed' and 'signed' events need a real tracking or e-signature service. ORK will not claim them without one." },
+    invoices: { title: "Invoices", stage: "Stage C",
+      summary: "Unique invoice numbers, line items, tax, discounts, partial payments and overdue tracking.",
+      local: "Invoice creation, exact decimal totals, balances and PDF output work in the browser.",
+      backend: "Invoice capture (OCR) and secure document storage need an OCR service and file storage." },
+    payments: { title: "Payments", stage: "Stage C",
+      summary: "Manual payment records, partial payments, refunds, reversals and an audit trail.",
+      local: "Manual recording and reconciliation against invoices work in the browser.",
+      backend: "Automatic bank feeds need a licensed financial-data provider and a secure backend. No bank connection is simulated." },
+    team: { title: "Team and Tasks", stage: "Stage D",
+      summary: "Task lists, assignments and team profiles linked to customers, quotations and invoices.",
+      local: "Tasks and assignee labels can work in the browser.",
+      backend: "Roles and permissions are only real once enforced by a backend. ORK will not claim multi-user support before then." },
+    integrations: { title: "Integrations", stage: "Stage D",
+      summary: "Banking, payment gateways, email, calendar, WhatsApp Business, accounting, storage and AI.",
+      local: "Only the existing Google Sheets sync is live today (configured in app.js).",
+      backend: "Every other integration needs provider accounts and server-side secrets. None is connected." }
+  };
+
+  // ------------------------------------------------------------
+  // Navigation
+  // ------------------------------------------------------------
+  function buildNav() {
+    const sidebar = document.querySelector(".sidebar");
+    if (!sidebar) return;
+
+    sidebar.querySelectorAll(".nav-item[data-view]").forEach(el => el.remove());
+
+    let nav = sidebar.querySelector(".sidebar-nav");
+    if (!nav) {
+      nav = document.createElement("nav");
+      nav.className = "sidebar-nav";
+      sidebar.insertBefore(nav, sidebar.querySelector(".sidebar-bottom"));
+    }
+
+    nav.setAttribute("aria-label", "Primary");
+    nav.innerHTML = NAV.map(group => `
+      <div class="nav-group">
+        <p class="nav-group-label">${group.group}</p>
+        ${group.items.map(item => `
+          <button type="button" class="nav-item${item.sub ? " nav-sub" : ""}"
+            data-view="${item.view}">
+            <span aria-hidden="true">${item.icon}</span>
+            <em>${item.label}</em>
+            ${item.planned ? '<b class="nav-tag">Planned</b>' : ""}
+          </button>`).join("")}
+      </div>`).join("");
+  }
+
+  function markActive(view) {
+    document.querySelectorAll(".nav-item[data-view]").forEach(item => {
+      const active = item.dataset.view === view;
+      item.classList.toggle("active", active);
+      if (active) item.setAttribute("aria-current", "page");
+      else item.removeAttribute("aria-current");
+    });
+  }
+
+  const coreInit = ORK.init;
+  ORK.init = function () {
+    buildNav();
+    coreInit.call(this);
+  };
+
+  const coreShowView = ORK.showView;
+  ORK.showView = function (view) {
+    const planned = PLANNED[view];
+
+    if (view === "dashboard" || planned) {
+      const main = document.getElementById("main-content");
+      const title = document.getElementById("page-title");
+      if (!main || !title) return;
+
+      this.currentView = view;
+      title.textContent = view === "dashboard" ? "Overview" : planned.title;
+      markActive(view);
+
+      if (view === "dashboard") this.renderDashboard();
+      else this.renderPlanned(view);
+
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+
+    coreShowView.call(this, view);
+
+    const title = document.getElementById("page-title");
+    if (title && TITLES[view] && this.currentView === view) {
+      title.textContent = TITLES[view];
+    }
+    markActive(view);
+  };
+
+  // ------------------------------------------------------------
+  // Planned module pages (honest: nothing here is functional)
+  // ------------------------------------------------------------
+  ORK.renderPlanned = function (view) {
+    const p = PLANNED[view];
+    const e = v => this.escape(v);
+
+    document.getElementById("main-content").innerHTML = `
+      <section class="page-heading">
+        <div>
+          <p class="eyebrow">OPEN QUOTE RECOVERY KIT</p>
+          <h1>${e(p.title)}</h1>
+          <p class="page-description">${e(p.summary)}</p>
+        </div>
+        <span class="pill pill-planned">Planned · ${e(p.stage)}</span>
+      </section>
+
+      <section class="panel planned-panel">
+        <div class="notice notice-info">
+          This module has not been built yet. Nothing on this page reads or
+          changes your records.
+        </div>
+        <div class="planned-columns">
+          <div>
+            <h2>Can be built in the browser</h2>
+            <p>${e(p.local)}</p>
+          </div>
+          <div>
+            <h2>Depends on backend infrastructure</h2>
+            <p>${e(p.backend)}</p>
+          </div>
+        </div>
+      </section>`;
+  };
+
+  // ------------------------------------------------------------
+  // Overview dashboard (all figures calculated from stored records)
+  // ------------------------------------------------------------
+  ORK.dashRange = { from: "", to: "" };
+
+  const inRange = (date, range) => {
+    if (!range.from && !range.to) return true;
+    if (!date) return false;
+    return (!range.from || date >= range.from) && (!range.to || date <= range.to);
+  };
+
+  const totalsByCurrency = (quotes, fallback) => {
+    const totals = {};
+    quotes.forEach(q => {
+      const c = String(q.currency || fallback).toUpperCase();
+      totals[c] = Math.round(((totals[c] || 0) + (Number(q.amount) || 0)) * 100) / 100;
+    });
+    return totals;
+  };
+
+  const formatGroups = (totals, fallback) => {
+    const rows = Object.entries(totals).sort(([a], [b]) => a.localeCompare(b));
+    return rows.length
+      ? rows.map(([c, a]) => ORK.formatMoney(a, c)).join(" · ")
+      : ORK.formatMoney(0, fallback);
+  };
+
+  async function getRates(base) {
+    const key = `ork_fx_rates_${base}`;
+    let cached = null;
+    try { cached = JSON.parse(localStorage.getItem(key) || "null"); } catch { /* ignore */ }
+
+    if (cached && cached.rates && cached.nextUpdateUnix * 1000 > Date.now()) return cached;
+
+    try {
+      const response = await fetch(`https://open.er-api.com/v6/latest/${base}`);
+      if (!response.ok) throw new Error("Exchange rate request failed.");
+      const data = await response.json();
+      if (data.result !== "success" || !data.rates) throw new Error("No rates returned.");
+
+      const fresh = {
+        rates: data.rates,
+        lastUpdated: data.time_last_update_utc,
+        nextUpdateUnix: data.time_next_update_unix
+      };
+      localStorage.setItem(key, JSON.stringify(fresh));
+      return fresh;
+    } catch (error) {
+      console.warn("Using saved exchange rates:", error);
+      return cached && cached.rates ? cached : null;
+    }
+  }
+
+  // Converted total is shown only as a labelled estimate with its rate date.
+  async function showConverted(totals, base) {
+    const currencies = Object.keys(totals);
+    if (currencies.every(c => c === base)) return;
+
+    const rates = await getRates(base);
+    const el = document.getElementById("kpi-fx");
+    if (!el) return;
+
+    if (!rates) {
+      el.textContent = "Mixed currencies. Exchange rates unavailable offline.";
+      return;
+    }
+
+    let sum = 0;
+    for (const [currency, amount] of Object.entries(totals)) {
+      const rate = Number(rates.rates[currency]);
+      if (currency !== base && (!rate || !Number.isFinite(rate))) {
+        el.textContent = `No exchange rate available for ${currency}.`;
+        return;
+      }
+      sum += currency === base ? amount : amount / rate;
+    }
+
+    el.textContent =
+      `Estimate: ${ORK.formatMoney(sum, base)} in ${base} · rates ${rates.lastUpdated || "saved"}`;
+  }
+
+  function monthlyChart(rows) {
+    const W = 480, H = 190, padX = 24, top = 22, bottom = 28;
+    const max = Math.max(1, ...rows.map(r => r.sent));
+    const slot = (W - padX * 2) / rows.length;
+    const plotH = H - top - bottom;
+
+    const bars = rows.map((r, i) => {
+      const x = padX + i * slot;
+      const h1 = (r.sent / max) * plotH;
+      const h2 = (r.accepted / max) * plotH;
+      return `
+        <rect class="bar-sent" x="${x + slot * 0.16}" y="${H - bottom - h1}"
+          width="${slot * 0.3}" height="${h1}" rx="3"></rect>
+        <rect class="bar-acc" x="${x + slot * 0.52}" y="${H - bottom - h2}"
+          width="${slot * 0.3}" height="${h2}" rx="3"></rect>
+        ${r.sent ? `<text class="chart-num" x="${x + slot * 0.31}"
+          y="${H - bottom - h1 - 5}" text-anchor="middle">${r.sent}</text>` : ""}
+        <text class="chart-label" x="${x + slot / 2}" y="${H - 9}"
+          text-anchor="middle">${ORK.escape(r.label)}</text>`;
+    }).join("");
+
+    return `<svg viewBox="0 0 ${W} ${H}" role="img"
+      aria-label="Quotations sent and accepted per month, last six months">
+      <line class="chart-axis" x1="${padX}" x2="${W - padX}"
+        y1="${H - bottom}" y2="${H - bottom}"></line>${bars}</svg>`;
+  }
+
+  ORK.renderDashboard = function () {
+    const main = document.getElementById("main-content");
+    if (!main) return;
+
+    const s = this.state;
+    const e = v => this.escape(v);
+    const range = this.dashRange;
+    const base = (s.settings.defaultCurrency || "USD").toUpperCase();
+
+    // Quotation metrics respect the date filter (by Date Sent).
+    const scoped = s.quotes.filter(q => inRange(q.dateSent, range));
+    const open = scoped.filter(q => !CLOSED.includes(q.status));
+    const accepted = scoped.filter(q => q.status === "Accepted");
+    const declined = scoped.filter(q => q.status === "Declined");
+    const decided = accepted.length + declined.length;
+    const rate = decided ? (accepted.length / decided) * 100 : null;
+    const sent = scoped.filter(q => q.status !== "Draft").length;
+
+    const openTotals = totalsByCurrency(open, base);
+
+    // Follow-up items always show live status.
+    const live = s.quotes;
+    const status = q => this.getFollowUpStatus(q);
+    const overdue = live.filter(q => status(q) === "Overdue");
+    const dueToday = live.filter(q => status(q) === "Due today");
+    const byDate = (a, b) =>
+      String(a.nextFollowUpDate).localeCompare(String(b.nextFollowUpDate));
+    const priorities = [...overdue, ...dueToday].sort(byDate).slice(0, 5);
+    const upcoming = live.filter(q => status(q) === "Upcoming").sort(byDate).slice(0, 5);
+    const needsDate = live.filter(q =>
+      !q.doNotContact && !CLOSED.includes(q.status) && !q.nextFollowUpDate).length;
+    const recent = [...s.activities]
+      .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")))
+      .slice(0, 5);
+
+    const kpi = (label, value, note, tone = "", noteId = "") => `
+      <div class="kpi ${tone}">
+        <span class="kpi-label">${label}</span>
+        <strong class="kpi-value">${value}</strong>
+        <small class="kpi-note"${noteId ? ` id="${noteId}"` : ""}>${note}</small>
+      </div>`;
+
+    const feedEmpty = text => `<p class="feed-empty">${text}</p>`;
+    const quoteItem = (q, meta) => `
+      <button type="button" class="feed-item" data-open-quote="${e(q.id)}">
+        <strong>${e(q.customerName)}</strong>
+        <span>${e(q.description)}</span>
+        <small>${meta}</small>
+      </button>`;
+    const followMeta = q => `${e(status(q))} · ${this.formatDate(q.nextFollowUpDate)}`;
+
+    // Chart data
+    const now = new Date();
+    const months = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      const inMonth = scoped.filter(q => String(q.dateSent || "").startsWith(key));
+      months.push({
+        label: d.toLocaleDateString(undefined, { month: "short" }),
+        sent: inMonth.length,
+        accepted: inMonth.filter(q => q.status === "Accepted").length
+      });
+    }
+
+    const statusRows = this.statuses
+      .map(name => ({ name, count: scoped.filter(q => q.status === name).length }))
+      .filter(row => row.count > 0);
+    const maxStatus = Math.max(1, ...statusRows.map(r => r.count));
+
+    const total = scoped.length;
+    const otherClosed = total - open.length - accepted.length - declined.length;
+    const seg = (cls, label, n) => n ? `
+      <div class="seg ${cls}" style="flex:${n}" title="${label}: ${n}"></div>` : "";
+    const legend = (cls, label, n) => `
+      <li><i class="swatch ${cls}"></i>${label}<strong>${n}</strong></li>`;
+
+    const hasRange = Boolean(range.from || range.to);
+
+    main.innerHTML = `
+      <section class="page-heading">
+        <div>
+          <p class="eyebrow">OPEN QUOTE RECOVERY KIT</p>
+          <h1>Business overview</h1>
+          <p class="page-description">
+            Quotation performance and follow-up health, calculated from the
+            records stored in this browser.
+          </p>
+        </div>
+        <button class="primary-button" id="add-quote-button">+ Add New Quote</button>
+      </section>
+
+      <section class="panel filter-bar">
+        <label>From <input type="date" id="dash-from" value="${e(range.from)}"></label>
+        <label>To <input type="date" id="dash-to" value="${e(range.to)}"></label>
+        <button type="button" class="secondary-button" id="dash-clear-range"
+          ${hasRange ? "" : "disabled"}>Clear dates</button>
+        <p class="filter-hint">
+          Filters quotation figures and charts by Date Sent. Follow-up items
+          always show their live status.
+        </p>
+      </section>
+
+      <section class="kpi-group">
+        <h2>Quotations</h2>
+        <div class="kpi-grid">
+          ${kpi("Outstanding quotation value", formatGroups(openTotals, base),
+            `${open.length} open quotation${open.length === 1 ? "" : "s"}. Currencies are never added together.`,
+            "", "kpi-fx")}
+          ${kpi("Accepted value", formatGroups(totalsByCurrency(accepted, base), base),
+            `${accepted.length} accepted quotation${accepted.length === 1 ? "" : "s"}. Quoted, not yet invoiced or collected.`)}
+          ${kpi("Quotation conversion", rate === null ? "—" : rate.toFixed(1) + "%",
+            decided ? `${accepted.length} accepted of ${decided} decided` : "No accepted or declined quotations yet")}
+          ${kpi("Quotations sent", String(sent), `${total} recorded in this period, including drafts`)}
+        </div>
+      </section>
+
+      <section class="kpi-group">
+        <h2>Follow-ups</h2>
+        <div class="kpi-grid kpi-grid-3">
+          ${kpi("Due today or overdue", String(overdue.length + dueToday.length),
+            "Open quotations needing contact", overdue.length + dueToday.length ? "kpi-warn" : "")}
+          ${kpi("Overdue", String(overdue.length),
+            "Scheduled date has passed", overdue.length ? "kpi-danger" : "")}
+          ${kpi("Needs a date", String(needsDate),
+            "Open quotations with no follow-up scheduled")}
+        </div>
+      </section>
+
+      <div class="notice notice-info">
+        Invoice, payment, customer and pipeline metrics will appear here when
+        those modules are built. They are not shown now because there are no
+        records to calculate them from.
+      </div>
+
+      ${total ? `
+      <section class="chart-grid">
+        <div class="panel">
+          <div class="panel-heading"><div>
+            <h2>Quotations by month</h2>
+            <p>Sent versus accepted, by Date Sent, last six months</p>
+          </div></div>
+          ${monthlyChart(months)}
+          <ul class="legend legend-row">
+            <li><i class="swatch seg-open"></i>Sent</li>
+            <li><i class="swatch seg-acc"></i>Accepted</li>
+          </ul>
+        </div>
+
+        <div class="panel">
+          <div class="panel-heading"><div>
+            <h2>Status mix</h2>
+            <p>Current status of quotations in this period</p>
+          </div></div>
+          <div class="seg-bar">
+            ${seg("seg-acc", "Accepted", accepted.length)}
+            ${seg("seg-dec", "Declined", declined.length)}
+            ${seg("seg-open", "Open", open.length)}
+            ${seg("seg-other", "Expired or closed", otherClosed)}
+          </div>
+          <ul class="legend">
+            ${legend("seg-open", "Open", open.length)}
+            ${legend("seg-acc", "Accepted", accepted.length)}
+            ${legend("seg-dec", "Declined", declined.length)}
+            ${legend("seg-other", "Expired or closed", otherClosed)}
+          </ul>
+          <div class="mini-bars">
+            ${statusRows.map(r => `
+              <div class="analytics-bar-item">
+                <div class="analytics-bar-heading">
+                  <span>${e(r.name)}</span><strong>${r.count}</strong>
+                </div>
+                <div class="analytics-track"><div class="analytics-bar"
+                  style="width:${(r.count / maxStatus) * 100}%"></div></div>
+              </div>`).join("")}
+          </div>
+        </div>
+      </section>` : `
+      <section class="panel">
+        <div class="empty-state">
+          <div class="empty-icon">▤</div>
+          <strong>${hasRange ? "No quotations in this date range" : "No quotations yet"}</strong>
+          <p>${hasRange ? "Clear or change the dates to see more." :
+            "Add your first quotation and your charts will appear here."}</p>
+        </div>
+      </section>`}
+
+      <section class="dash-lists">
+        <div class="panel">
+          <div class="panel-heading"><div>
+            <h2>Follow-up priorities</h2><p>Overdue and due today</p>
+          </div></div>
+          ${priorities.length ? priorities.map(q => quoteItem(q, followMeta(q))).join("")
+            : feedEmpty("Nothing due right now.")}
+        </div>
+        <div class="panel">
+          <div class="panel-heading"><div>
+            <h2>Upcoming follow-ups</h2><p>Next scheduled</p>
+          </div></div>
+          ${upcoming.length ? upcoming.map(q => quoteItem(q, followMeta(q))).join("")
+            : feedEmpty("No upcoming follow-ups scheduled.")}
+        </div>
+        <div class="panel">
+          <div class="panel-heading"><div>
+            <h2>Recent activity</h2><p>Latest logged interactions</p>
+          </div></div>
+          ${recent.length ? recent.map(a => `
+            <div class="feed-item">
+              <strong>${e(a.customerName || "Customer")}</strong>
+              <span>${e(a.activityType || "Activity")} · ${e(a.channel || "")}</span>
+              <small>${e(a.outcome || "")} · ${this.formatDate(a.date)}</small>
+            </div>`).join("") : feedEmpty("No activity recorded yet.")}
+        </div>
+      </section>`;
+
+    showConverted(openTotals, base);
+  };
+
+  // ------------------------------------------------------------
+  // Events for the new dashboard
+  // ------------------------------------------------------------
+  document.addEventListener("click", event => {
+    const open = event.target.closest("[data-open-quote]");
+    if (open) {
+      ORK.showView("quotes");
+      ORK.openQuoteForm(open.dataset.openQuote);
+      return;
+    }
+
+    if (event.target.closest("#dash-clear-range")) {
+      ORK.dashRange = { from: "", to: "" };
+      ORK.renderDashboard();
+    }
+  });
+
+  document.addEventListener("change", event => {
+    if (event.target.id !== "dash-from" && event.target.id !== "dash-to") return;
+
+    const from = document.getElementById("dash-from").value;
+    const to = document.getElementById("dash-to").value;
+
+    if (from && to && from > to) {
+      alert("The start date must be on or before the end date.");
+      return;
+    }
+
+    ORK.dashRange = { from, to };
+    ORK.renderDashboard();
+  });
+})();
         seen.add(quote.id);
       });
 
