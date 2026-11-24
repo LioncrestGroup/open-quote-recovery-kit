@@ -153,7 +153,7 @@ const ORK = {
 
     // Send the latest quotes and activities to Google Sheets.
     fetch(
-      "https://script.google.com/macros/s/AKfycbyzbuwC-X2t0CX7Zt_vegr36PemkIptI2TUCOe5X2nf-P4TDBhhCfk34ABFWIh6fNp_/exec",
+      "https://script.google.com/macros/s/AKfycbzSetA1ic7Ymc-nBSIjYD_5h20Cj7zDIUnqZwoVBtzzKib2IkdWsYA2KtVSIn25JUVb/exec",
       {
         method: "POST",
         mode: "no-cors",
